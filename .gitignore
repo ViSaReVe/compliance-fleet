@@ -1,0 +1,11 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+node_modules/
+dist/
+.DS_Store
+*.log
+.agent_engine_config.json
