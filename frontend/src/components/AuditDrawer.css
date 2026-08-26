@@ -1,0 +1,113 @@
+.drawer {
+  background: #0b1614;
+  border: 1px solid #1f3a30;
+  border-radius: 12px;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.drawer-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: #d1fae5;
+}
+
+.drawer-empty {
+  color: #6b8f7e;
+  font-size: 13px;
+}
+
+.report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #102420;
+  border: 1px solid #1f3a30;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #d1fae5;
+  cursor: pointer;
+  font: inherit;
+}
+
+.report-row:hover {
+  border-color: #34d399;
+}
+
+.report-id {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.verdict-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.verdict--approved { background: #16362a; color: #34d399; }
+.verdict--flagged { background: #3a2f14; color: #fbbf24; }
+.verdict--escalated { background: #1e2a3a; color: #60a5fa; }
+.verdict--blocked { background: #3a1414; color: #f87171; }
+.verdict--pending { background: #24272b; color: #9ca3af; }
+
+.chain {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid #1f3a30;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chain-step {
+  padding: 6px 10px;
+  background: #0e1e1a;
+  border-radius: 6px;
+}
+
+.chain-step--blocked {
+  background: #2a1414;
+}
+
+.chain-head {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.chain-agent {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.chain-name {
+  color: #6b8f7e;
+  font-family: ui-monospace, monospace;
+}
+
+.chain-summary {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.chain-violations {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #fbbf24;
+}

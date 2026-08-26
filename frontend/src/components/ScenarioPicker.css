@@ -1,0 +1,28 @@
+.scenario-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.scenario-picker-label {
+  font-size: 12px;
+  color: #6b8f7e;
+  margin-right: 4px;
+}
+
+.scenario-btn {
+  background: #102420;
+  border: 1px solid #1f3a30;
+  color: #d1fae5;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.scenario-btn:hover {
+  border-color: #34d399;
+  color: #34d399;
+}
