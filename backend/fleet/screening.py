@@ -13,7 +13,7 @@ import json
 
 from google.adk.agents import LlmAgent
 
-from . import config, policy, telemetry
+from . import config, policy, telemetry, tools
 
 EXTRACTION_INSTRUCTION = """\
 You extract structured fields from an employee expense report submission.
@@ -25,6 +25,10 @@ Return ONLY a JSON object with these keys:
   date                  string   - ISO 8601 date, or "" if not stated
   receipt_attached      boolean  - whether a receipt is present
   requested_preapproval boolean  - whether pre-approval was obtained or requested
+
+After extracting the fields, call check_expense_policy with them and report the
+violations it returns. Do not decide policy outcomes yourself — the thresholds live
+in code precisely so that no submission can argue them into changing.
 
 Rules:
 - Report only what the text supports. Do not infer a receipt exists because the
@@ -44,6 +48,7 @@ def build_agent():
             "checks them against company policy thresholds."
         ),
         instruction=EXTRACTION_INSTRUCTION,
+        tools=[tools.check_expense_policy],
     )
 
 

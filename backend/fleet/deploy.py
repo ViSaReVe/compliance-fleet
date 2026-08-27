@@ -66,8 +66,21 @@ def deploy_fleet():
             "env_vars": {
                 "GOOGLE_CLOUD_LOCATION": config.MODEL_LOCATION,
                 "GOOGLE_GENAI_USE_ENTERPRISE": "TRUE",
+                # GOOGLE_CLOUD_PROJECT is reserved by Agent Runtime and rejected
+                # with FAILED_PRECONDITION; it is injected for you.
+                "FLEET_SERVICE_LOCATION": config.SERVICE_LOCATION,
+                "ARMOR_TEMPLATE": config.ARMOR_TEMPLATE,
             },
             "staging_bucket": config.STAGING_BUCKET,
+            # Tools are plain functions, so cloudpickle serialises them by module
+            # reference rather than by value — the remote environment then dies at
+            # startup with "No module named 'fleet'". Shipping the package fixes it.
+            # Requires running the deploy from backend/ so this path resolves.
+            # policies/ ships too: config.POLICY_PATH resolves to
+            # <parent of fleet>/policies/rules.yaml, which remotely is
+            # /code/policies/rules.yaml. Without it the policy tool raises
+            # FileNotFoundError at call time rather than at startup.
+            "extra_packages": ["fleet", "policies"],
             # pydantic and cloudpickle are not optional. The deploy warns
             # "The following requirements are missing: {'pydantic', 'cloudpickle'}"
             # and then succeeds anyway — but the agent object never rehydrates in the

@@ -37,13 +37,21 @@ def _required(key):
 
 PROJECT_ID = _required("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+
+# Model Armor, Cloud DLP, Agent Runtime, Memory Bank and Agent Registry are all
+# REGIONAL and live in us-central1. The model is not — see MODEL_LOCATION below — so
+# the deployed runtime runs with GOOGLE_CLOUD_LOCATION=global to reach it. That makes
+# LOCATION the wrong value for regional service endpoints in the remote environment:
+# it builds modelarmor.global.rep.googleapis.com, which does not resolve, and the
+# call dies on a 60s timeout that surfaces as ARMOR_UNAVAILABLE. Keep the two apart.
+SERVICE_LOCATION = os.environ.get("FLEET_SERVICE_LOCATION", "us-central1")
 PROJECT_NUMBER = os.environ.get("GOOGLE_CLOUD_PROJECT_NUMBER", "")
 STAGING_BUCKET = os.environ.get("STAGING_BUCKET", f"gs://{PROJECT_ID}-agent-staging")
 
 # Full resource name of the Model Armor template created by bootstrap.sh.
 ARMOR_TEMPLATE = os.environ.get(
     "ARMOR_TEMPLATE",
-    f"projects/{PROJECT_ID}/locations/{LOCATION}/templates/expense-guard",
+    f"projects/{PROJECT_ID}/locations/{SERVICE_LOCATION}/templates/expense-guard",
 )
 
 # Which principal set IAM bindings target. Differs for org vs standalone projects —

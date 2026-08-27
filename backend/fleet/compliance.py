@@ -53,7 +53,7 @@ def _armor():
         # Model Armor is regional and requires an explicit endpoint override.
         _armor_client = modelarmor_v1.ModelArmorClient(
             client_options=client_options_lib.ClientOptions(
-                api_endpoint=f"modelarmor.{config.LOCATION}.rep.googleapis.com"
+                api_endpoint=f"modelarmor.{config.SERVICE_LOCATION}.rep.googleapis.com"
             )
         )
     return _armor_client
@@ -122,7 +122,7 @@ def redact(text):
     try:
         response = _dlp().deidentify_content(
             request={
-                "parent": f"projects/{config.PROJECT_ID}/locations/{config.LOCATION}",
+                "parent": f"projects/{config.PROJECT_ID}/locations/{config.SERVICE_LOCATION}",
                 "deidentify_config": _DEIDENTIFY_CONFIG,
                 "inspect_config": {
                     "info_types": INFO_TYPES,
