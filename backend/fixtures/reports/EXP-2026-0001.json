@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0001",
+  "submitted_by": "employee_042",
+  "amount_usd": 42.00,
+  "category": "meals",
+  "merchant": "Corner Bistro",
+  "expense_date": "2026-08-18",
+  "description": "Team lunch after sprint demo.",
+  "receipt_attached": true,
+  "receipt_ocr_text": "Corner Bistro\n2 x Lunch Special  $21.00 ea\nTotal: $42.00\nThank you!",
+  "requested_preapproval": false
+}

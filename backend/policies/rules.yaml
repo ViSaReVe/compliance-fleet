@@ -1,0 +1,25 @@
+# Expense policy rules consumed by the Screening Agent (backend/fleet/screening.py).
+# Thresholds below are the only two numbers already implied by the repo (README demo
+# scenarios use the $500 receipt-free cap directly, and the $6,200 escalation fixture
+# assumes some pre-approval line under it). Everything marked ASSUMPTION is a guess
+# to unblock fixture-writing, not a business decision — confirm with Vidya before the
+# Screening Agent actually enforces it.
+
+receipt_required_above_usd: 500          # from README: "$840 hotel, no receipt" -> flagged
+violation_code_no_receipt: OVER_LIMIT_NO_RECEIPT
+
+preapproval_required_above_usd: 5000     # ASSUMPTION: not stated in README, only implied
+                                          # by the $6,200 escalation fixture exceeding it
+violation_code_no_preapproval: OVER_LIMIT_NO_PREAPPROVAL
+
+# ASSUMPTION: no disallowed categories are defined anywhere yet. Left empty rather than
+# invented — Screening Agent should treat this list as optional until policy is set.
+disallowed_categories: []
+
+allowed_categories:
+  - meals
+  - travel
+  - lodging
+  - offsite
+  - supplies
+  - software

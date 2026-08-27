@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0003",
+  "submitted_by": "employee_089",
+  "amount_usd": 65.00,
+  "category": "travel",
+  "merchant": "Airport Taxi Co",
+  "expense_date": "2026-08-20",
+  "description": "Taxi to airport for client site visit.",
+  "receipt_attached": true,
+  "receipt_ocr_text": "Airport Taxi Co\nFare: $65.00\nPaid with card ending in 1111\nCard: 4111 1111 1111 1111\nThank you for riding with us.",
+  "requested_preapproval": false
+}

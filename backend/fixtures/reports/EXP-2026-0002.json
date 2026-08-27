@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0002",
+  "submitted_by": "employee_017",
+  "amount_usd": 840.00,
+  "category": "lodging",
+  "merchant": "Riverside Inn",
+  "expense_date": "2026-08-19",
+  "description": "Client conference hotel stay, two nights.",
+  "receipt_attached": false,
+  "receipt_ocr_text": null,
+  "requested_preapproval": false
+}

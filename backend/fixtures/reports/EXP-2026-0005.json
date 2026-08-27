@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0005",
+  "submitted_by": "employee_055",
+  "amount_usd": 6200.00,
+  "category": "offsite",
+  "merchant": "Lakeside Retreat Center",
+  "expense_date": "2026-08-22",
+  "description": "Team offsite venue booking, no pre-approval requested yet.",
+  "receipt_attached": true,
+  "receipt_ocr_text": "Lakeside Retreat Center\nVenue Booking Fee: $6,200.00",
+  "requested_preapproval": false
+}

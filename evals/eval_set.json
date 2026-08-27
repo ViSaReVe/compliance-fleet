@@ -1,0 +1,41 @@
+{
+  "description": "Pre-demo sanity gate for the expense compliance fleet. Run once via `adk eval backend/fleet evals/eval_set.json` (Day 5/6) before recording — a validation gate at the end of the pipeline, not ongoing CI. Currently covers the 5 demo scenarios; grows to ~10-15 cases per README 'Eval set' section (edge amounts at the $500/$5,000 thresholds, multiple violations on one report, borderline PII, near-miss injection phrasing).",
+  "cases": [
+    {
+      "case_id": "demo-01-approved",
+      "fixture": "backend/fixtures/reports/EXP-2026-0001.json",
+      "expected_verdict": "approved",
+      "expected_violations": [],
+      "notes": "Clean path: under receipt cap, receipt attached, no PII."
+    },
+    {
+      "case_id": "demo-02-flagged",
+      "fixture": "backend/fixtures/reports/EXP-2026-0002.json",
+      "expected_verdict": "flagged",
+      "expected_violations": ["OVER_LIMIT_NO_RECEIPT"],
+      "notes": "Over the $500 receipt-free cap with no receipt attached."
+    },
+    {
+      "case_id": "demo-03-redacted",
+      "fixture": "backend/fixtures/reports/EXP-2026-0003.json",
+      "expected_verdict": "approved",
+      "expected_violations": [],
+      "expected_dlp_redactions": 1,
+      "notes": "Within policy, but receipt OCR text carries a card number DLP must redact before persistence."
+    },
+    {
+      "case_id": "demo-04-blocked",
+      "fixture": "backend/fixtures/reports/EXP-2026-0004.json",
+      "expected_verdict": "blocked",
+      "expected_armor_verdict": "PROMPT_INJECTION_BLOCKED",
+      "notes": "Description contains an injection attempt Model Armor must intercept before Screening acts on it."
+    },
+    {
+      "case_id": "demo-05-escalated",
+      "fixture": "backend/fixtures/reports/EXP-2026-0005.json",
+      "expected_verdict": "escalated",
+      "expected_violations": ["OVER_LIMIT_NO_PREAPPROVAL"],
+      "notes": "Over the $5,000 pre-approval line (see policies/rules.yaml assumption) with none requested; run should pause on request_confirmation()."
+    }
+  ]
+}
