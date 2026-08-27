@@ -15,6 +15,15 @@ function verdictOf(spans) {
   return withVerdict?.attributes.verdict ?? (spans.some((s) => s.status === "BLOCKED") ? "blocked" : "pending");
 }
 
+// An escalated report is still "awaiting a manager" until a resume span carrying
+// manager_decision shows up for it — see backend/devtools/local_server.py resolve_pending().
+function isAwaitingApproval(spans, verdict) {
+  if (verdict !== "escalated") return false;
+  return !spans.some((s) => s.attributes?.manager_decision);
+}
+
+const EVENTS_HOST = "http://localhost:8000";
+
 const VERDICT_CLASS = {
   approved: "verdict--approved",
   flagged: "verdict--flagged",
@@ -23,10 +32,14 @@ const VERDICT_CLASS = {
   pending: "verdict--pending",
 };
 
-export default function AuditDrawer({ completedSpans }) {
+export default function AuditDrawer({ completedSpans, mode }) {
   const [openReport, setOpenReport] = useState(null);
   const byReport = useMemo(() => groupByReport(completedSpans), [completedSpans]);
   const reportIds = [...byReport.keys()];
+
+  function resolve(id, decision) {
+    fetch(`${EVENTS_HOST}/${decision}/${id}`).catch(() => {});
+  }
 
   return (
     <div className="drawer">
@@ -36,6 +49,7 @@ export default function AuditDrawer({ completedSpans }) {
         {reportIds.map((id) => {
           const spans = byReport.get(id);
           const verdict = verdictOf(spans);
+          const awaitingApproval = mode === "live" && isAwaitingApproval(spans, verdict);
           const isOpen = openReport === id;
           return (
             <li key={id} className="report-item">
@@ -43,6 +57,17 @@ export default function AuditDrawer({ completedSpans }) {
                 <span className="report-id">{id}</span>
                 <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`}>{verdict}</span>
               </button>
+              {awaitingApproval && (
+                <div className="approval-row">
+                  <span className="approval-label">Awaiting manager…</span>
+                  <button className="approve-btn approve-btn--yes" onClick={() => resolve(id, "approve")}>
+                    Approve
+                  </button>
+                  <button className="approve-btn approve-btn--no" onClick={() => resolve(id, "deny")}>
+                    Deny
+                  </button>
+                </div>
+              )}
               {isOpen && (
                 <ol className="chain">
                   {[...spans].reverse().map((s) => (

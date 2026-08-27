@@ -31,6 +31,15 @@ GAP_BETWEEN_REPORTS_S = 2.0
 clients = []
 clients_lock = threading.Lock()
 
+# Local proof of the README's pause/resume story: "ESCALATED -> run pauses, session
+# parked in Memory Bank... resumes days later on a manager FunctionResponse." Real
+# implementation is ADK's tool_context.request_confirmation() inside a
+# LongRunningFunctionTool (Vidya's Day 5) — this just proves the same shape end-to-end
+# with a manual HTTP call standing in for the manager's response, so the mechanic is
+# de-risked before that real wiring exists.
+pending_approvals = {}  # report_id -> {"trace_id": ..., "root_id": ...}
+pending_lock = threading.Lock()
+
 
 def now_ms():
     return int(time.time() * 1000)
@@ -119,8 +128,54 @@ def orchestrate(report, rules):
             },
         )
 
+    if result["verdict"] == "escalated":
+        with pending_lock:
+            pending_approvals[report_id] = {
+                "trace_id": trace_id,
+                "root_id": root_id,
+                "start_ms": root["start_ms"],
+            }
+        # Root span deliberately stays open (no span_end here) — it represents the
+        # run genuinely parked awaiting a manager, not a fixed sleep. resolve_pending()
+        # closes it later, whenever /approve or /deny actually gets called.
+        return
+
     time.sleep(0.05)
     span_end(root)
+
+
+def resolve_pending(report_id, decision_label):
+    with pending_lock:
+        entry = pending_approvals.pop(report_id, None)
+    if entry is None:
+        return False
+
+    resume_id = uuid.uuid4().hex
+    resume_span = span_start(
+        entry["trace_id"], resume_id, entry["root_id"], "execute_tool", "orchestrator", report_id
+    )
+    time.sleep(0.05)
+    span_end(
+        resume_span,
+        attributes={
+            "manager_decision": decision_label,
+            "summary": f"Manager {decision_label} after review — run resumed.",
+        },
+    )
+
+    root_span = {
+        "trace_id": entry["trace_id"],
+        "span_id": entry["root_id"],
+        "parent_id": None,
+        "name": "invoke_agent",
+        "agent": "orchestrator",
+        "report_id": report_id,
+        "start_ms": entry["start_ms"],
+        "status": "OK",
+        "attributes": {},
+    }
+    span_end(root_span, attributes={"manager_decision": decision_label})
+    return True
 
 
 def run_loop():
@@ -131,18 +186,50 @@ def run_loop():
         return
     i = 0
     while True:
-        orchestrate(reports[i % len(reports)], rules)
+        report = reports[i % len(reports)]
+        with pending_lock:
+            already_pending = report["report_id"] in pending_approvals
+        if not already_pending:
+            orchestrate(report, rules)
         i += 1
         time.sleep(GAP_BETWEEN_REPORTS_S)
 
 
 class EventsHandler(BaseHTTPRequestHandler):
+    def _json(self, status, payload):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
-        if self.path != "/events":
-            self.send_response(404)
-            self.end_headers()
+        if self.path == "/events":
+            self._stream_events()
             return
 
+        if self.path == "/pending":
+            with pending_lock:
+                report_ids = list(pending_approvals.keys())
+            self._json(200, {"pending": report_ids})
+            return
+
+        if self.path.startswith("/approve/") or self.path.startswith("/deny/"):
+            decision_label = "approved" if self.path.startswith("/approve/") else "denied"
+            report_id = self.path.rsplit("/", 1)[-1]
+            resolved = resolve_pending(report_id, decision_label)
+            if resolved:
+                self._json(200, {"ok": True, "report_id": report_id, "decision": decision_label})
+            else:
+                self._json(404, {"ok": False, "error": f"{report_id} is not pending approval"})
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+    def _stream_events(self):
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")

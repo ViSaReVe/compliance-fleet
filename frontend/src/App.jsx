@@ -48,7 +48,7 @@ export default function App() {
 
       <main className="app-main">
         <RadarCanvas activeSpans={feed.activeSpans} blip={feed.blip} />
-        <AuditDrawer completedSpans={feed.completedSpans} />
+        <AuditDrawer completedSpans={feed.completedSpans} mode={mode} />
       </main>
     </div>
   );
