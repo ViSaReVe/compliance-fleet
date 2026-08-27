@@ -54,23 +54,39 @@ def create_memory_bank():
 
 def deploy_fleet():
     app = AdkApp(agent=orchestrator.build_fleet())
+    # The remote GenAI client builds its endpoint from GOOGLE_CLOUD_LOCATION.
+    # Left at us-central1 it calls us-central1-aiplatform.googleapis.com, which
+    # cannot serve a locations/global publisher model however the path is
+    # written — so gemini-3.5-flash 404s in the runtime while working locally.
+    env_vars = {
+        "GOOGLE_CLOUD_LOCATION": config.MODEL_LOCATION,
+        "GOOGLE_GENAI_USE_ENTERPRISE": "TRUE",
+        # GOOGLE_CLOUD_PROJECT is reserved by Agent Runtime and rejected
+        # with FAILED_PRECONDITION; it is injected for you.
+        "FLEET_SERVICE_LOCATION": config.SERVICE_LOCATION,
+        "ARMOR_TEMPLATE": config.ARMOR_TEMPLATE,
+        # The runtime injects GOOGLE_CLOUD_PROJECT as the project NUMBER; DLP
+        # rejects number-form parents, so ship the id under our own key.
+        "FLEET_PROJECT_ID": config.PROJECT_ID,
+    }
+    if config.SECURITY_SA:
+        # Model Armor's rep endpoint 401s Agent Identity's bound tokens; the
+        # security tools impersonate this SA instead. See compliance.py.
+        env_vars["FLEET_SECURITY_SA"] = config.SECURITY_SA
+        # The default Context-Aware Access policy binds the agent's tokens to its
+        # mTLS certificate, and services that cannot validate that binding reject
+        # them outright — iamcredentials.generateAccessToken (the impersonation
+        # hop) 401s with "Unable to acquire impersonated credentials". Opting out
+        # trades the anti-theft binding for tokens the rest of Google Cloud
+        # accepts; scope stays limited because the security tools still run as
+        # the narrowly-granted fleet-security SA, not the agent principal.
+        env_vars["GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES"] = "False"
     remote = client().agent_engines.create(
         agent=app,
         config={
             "display_name": "expense-compliance-fleet",
             "identity_type": types.IdentityType.AGENT_IDENTITY,
-            # The remote GenAI client builds its endpoint from GOOGLE_CLOUD_LOCATION.
-            # Left at us-central1 it calls us-central1-aiplatform.googleapis.com, which
-            # cannot serve a locations/global publisher model however the path is
-            # written — so gemini-3.5-flash 404s in the runtime while working locally.
-            "env_vars": {
-                "GOOGLE_CLOUD_LOCATION": config.MODEL_LOCATION,
-                "GOOGLE_GENAI_USE_ENTERPRISE": "TRUE",
-                # GOOGLE_CLOUD_PROJECT is reserved by Agent Runtime and rejected
-                # with FAILED_PRECONDITION; it is injected for you.
-                "FLEET_SERVICE_LOCATION": config.SERVICE_LOCATION,
-                "ARMOR_TEMPLATE": config.ARMOR_TEMPLATE,
-            },
+            "env_vars": env_vars,
             "staging_bucket": config.STAGING_BUCKET,
             # Tools are plain functions, so cloudpickle serialises them by module
             # reference rather than by value — the remote environment then dies at

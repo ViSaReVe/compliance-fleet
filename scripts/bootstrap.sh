@@ -94,8 +94,39 @@ gcloud model-armor templates describe expense-guard --location="$LOCATION" >/dev
        --basic-config-filter-enforcement=enabled
 
 echo
+echo "==> Security service account 'fleet-security'"
+# Model Armor's regional endpoint (modelarmor.LOCATION.rep.googleapis.com) returns
+# 401 for the bound tokens Agent Identity issues — they work against global service
+# endpoints (aiplatform, iamcredentials) but not rep endpoints. The fix is one hop:
+# the agent impersonates this plain service account for its security-tool calls, and
+# the resulting ordinary OAuth token is accepted everywhere. IAM still names the
+# agent principal set — it alone holds tokenCreator on the SA.
+SECURITY_SA="fleet-security@${PROJECT_ID}.iam.gserviceaccount.com"
+gcloud services enable iamcredentials.googleapis.com --project="$PROJECT_ID"
+gcloud iam service-accounts describe "$SECURITY_SA" --project="$PROJECT_ID" >/dev/null 2>&1 \
+  || gcloud iam service-accounts create fleet-security \
+       --project="$PROJECT_ID" \
+       --display-name="Fleet security-tool caller (Model Armor + DLP)"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$SECURITY_SA" --role=roles/modelarmor.user --condition=None >/dev/null
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$SECURITY_SA" --role=roles/dlp.user --condition=None >/dev/null
+gcloud iam service-accounts add-iam-policy-binding "$SECURITY_SA" \
+  --project="$PROJECT_ID" \
+  --member="$AGENT_PRINCIPAL_SET" --role=roles/iam.serviceAccountTokenCreator --condition=None >/dev/null
+# The developer account too, so the impersonation path is testable locally before a
+# deploy rather than only inside the runtime.
+DEV_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+gcloud iam service-accounts add-iam-policy-binding "$SECURITY_SA" \
+  --project="$PROJECT_ID" \
+  --member="user:$DEV_ACCOUNT" --role=roles/iam.serviceAccountTokenCreator --condition=None >/dev/null
+
+echo
 echo "==> Writing backend/.env"
 mkdir -p backend
+# Preserve the Memory Bank engine id across re-runs — deploy.py writes it after the
+# first deploy and regenerating .env must not orphan the deployed engine.
+EXISTING_ENGINE_ID="$(grep '^AGENT_ENGINE_ID=' backend/.env 2>/dev/null | cut -d= -f2 || true)"
 cat > backend/.env <<ENVEOF
 GOOGLE_GENAI_USE_ENTERPRISE=TRUE
 GOOGLE_CLOUD_PROJECT=$PROJECT_ID
@@ -104,7 +135,9 @@ GOOGLE_CLOUD_LOCATION=$LOCATION
 STAGING_BUCKET=$BUCKET
 ARMOR_TEMPLATE=projects/$PROJECT_ID/locations/$LOCATION/templates/expense-guard
 AGENT_PRINCIPAL_SET=$AGENT_PRINCIPAL_SET
+FLEET_SECURITY_SA=$SECURITY_SA
 ENVEOF
+[[ -n "$EXISTING_ENGINE_ID" ]] && echo "AGENT_ENGINE_ID=$EXISTING_ENGINE_ID" >> backend/.env
 
 echo
 echo "Done. backend/.env written (gitignored)."

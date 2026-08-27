@@ -35,7 +35,10 @@ def _required(key):
     return value
 
 
-PROJECT_ID = _required("GOOGLE_CLOUD_PROJECT")
+# On Agent Runtime the injected GOOGLE_CLOUD_PROJECT is the project NUMBER, which
+# Cloud DLP rejects as a "Malformed parent field". FLEET_PROJECT_ID (set by
+# deploy.py) carries the id form; locally GOOGLE_CLOUD_PROJECT already is the id.
+PROJECT_ID = os.environ.get("FLEET_PROJECT_ID") or _required("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 # Model Armor, Cloud DLP, Agent Runtime, Memory Bank and Agent Registry are all
@@ -60,6 +63,13 @@ AGENT_PRINCIPAL_SET = os.environ.get("AGENT_PRINCIPAL_SET", "")
 
 # Set by fleet/deploy.py once the Memory Bank instance exists.
 AGENT_ENGINE_ID = os.environ.get("AGENT_ENGINE_ID", "")
+
+# Service account impersonated for Model Armor / DLP calls. Agent Identity's bound
+# tokens are rejected (401) by regional rep endpoints like
+# modelarmor.us-central1.rep.googleapis.com even though they work against global
+# endpoints, so the security tools take one impersonation hop through this SA. Empty
+# means call directly with ambient credentials.
+SECURITY_SA = os.environ.get("FLEET_SECURITY_SA", "")
 
 MODEL = os.environ.get("FLEET_MODEL", "gemini-3.5-flash")
 

@@ -123,10 +123,10 @@ production data without breaking compliance. Point-by-point:
 | Gemini 3.5 or newer | `gemini-3.5-flash` | Every agent, via Vertex AI (`GOOGLE_GENAI_USE_ENTERPRISE=TRUE`) |
 | Google agent framework | **ADK 2.7.1** | `LlmAgent`, `SequentialAgent`, `LongRunningFunctionTool` |
 | Google Cloud infra service | **Agent Runtime**, Cloud Storage, Cloud Trace | Managed deploy, sub-second cold start |
-| Cataloged for cross-department use | **Agent Registry** | Agents registered as A2A services; orchestrator resolves them at runtime via `AgentRegistry.get_remote_a2a_agent()` |
+| Cataloged for cross-department use | **Agent Registry** | Deployed engine auto-registered under its Agent Identity principal (framework detected `google-adk`); `resolve_sub_agents()` prefers registry-resolved A2A agents and falls back, logged, to in-process |
 | Context across weeks of async work | **Memory Bank** + **Agent Runtime** | `VertexAiMemoryBankService`; runs survive up to 7 days; pause/resume via `request_confirmation()` |
 | Production data without compliance violation | **Model Armor** + **Cloud DLP** | Injection blocked at the boundary; PII de-identified before persistence |
-| Zero-trust between agents | **Agent Identity** | Per-agent SPIFFE identity, mTLS, per-resource IAM bindings |
+| Zero-trust between agents | **Agent Identity** | Fleet deploys with a SPIFFE Agent Identity; security tools run as a narrowly-granted SA the agent may only impersonate. Per-agent identity split is roadmap (see honesty notes) |
 | Audit + reasoning-chain traces | **Agent Observability** | ADK OpenTelemetry → Cloud Trace + live SSE |
 
 ---
@@ -143,22 +143,27 @@ interface instead of being debugged against a moving frontend.
 | Radar UI, sweep, drawer, SSE client | **Working** | `frontend/src/` |
 | Trace contract over SSE | **Working** | `backend/devtools/local_server.py` |
 | Policy rule engine + verdicts | **Working** | `backend/devtools/rule_engine.py` |
-| Pause/resume for escalated reports | **Working** (local) | `/pending`, `/approve/:id`, `/deny/:id` |
-| Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` |
 | 13-case eval set | **Passing 13/13** | `python3 backend/devtools/run_eval.py` |
-| Gemini field extraction | **Written, unverified** | `backend/fleet/screening.py` |
-| Model Armor + Cloud DLP | **Written, unverified** | `backend/fleet/compliance.py` |
-| Agent Registry / Identity / Runtime | **Written, unverified** | `backend/fleet/{register,deploy}.py` |
-| Memory Bank | **Written, unverified** | `backend/fleet/orchestrator.py` |
-| ADK-native OpenTelemetry spans | **Written, unverified** | `backend/fleet/telemetry.py` |
+| Gemini field extraction | **Verified on Agent Runtime** | `backend/fleet/screening.py` |
+| Model Armor + Cloud DLP | **Verified on Agent Runtime** | `backend/fleet/compliance.py` — deployed agent returns `PROMPT_INJECTION_BLOCKED (pi_and_jailbreak)` and real `redaction_count` |
+| Pause/resume for escalated reports | **Verified on Agent Runtime** | `backend/fleet/approval.py` — `LongRunningFunctionTool` parks on `adk_request_confirmation`, resumes from a `FunctionResponse` |
+| Agent Runtime deploy + Agent Identity | **Verified** | `backend/fleet/deploy.py`; engine auto-registered in Agent Registry with its Agent Identity principal |
+| Memory Bank | **Verified attached** | `backend/fleet/orchestrator.py` |
+| ADK-native OpenTelemetry spans | **Verified** (local pipeline) | `backend/fleet/telemetry.py` |
+| Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` — see honesty note below |
 
-All of the above now run against project `nice-hangar-506120-t5` (org `usc.edu`).
-Verified live: Model Armor blocks injection and passes benign text, Cloud DLP redacts
-card / SSN / email / address, all 13 fixtures produce their expected verdict, and
-spans land in Cloud Trace carrying every `fleet.*` attribute.
+Deployed fleet: reasoning engine `586529530034782208`, project
+`nice-hangar-506120-t5` (org `usc.edu`), Memory Bank `6748861195161174016`.
 
-Still unverified: Agent Runtime deploy, Agent Registry registration, Agent Identity
-bindings, and Memory Bank — `deploy.py` and `register.py` have not been run.
+**Honesty notes.** The whole fleet deploys as one `SequentialAgent` engine with one
+Agent Identity. "The screening agent cannot call PII redaction" is enforced today by
+`devtools/agent_gateway.py`'s in-process allowlist, not by per-agent IAM — a
+per-agent split into separate engines (each with its own identity and bindings) is
+the roadmap, not the demo. Likewise the orchestrator's Agent Registry resolution
+(`resolve_sub_agents()`) falls back to in-process agents because the sub-agents are
+not individually registered as A2A services; the registry's verified role is that the
+deployed engine was auto-registered under its Agent Identity principal, framework
+detected as `google-adk`.
 
 **The integration seam.** `local_server.py` emits `agent` and `report_id` as
 top-level fields. Real ADK spans carry neither — `telemetry.py` must inject them as
@@ -378,8 +383,28 @@ Things we got wrong first, corrected here so nobody re-learns them:
   double-redacted.
 - **Don't hand-roll the pause/resume.** ADK already parks a run on
   `tool_context.request_confirmation()` inside a `LongRunningFunctionTool` and resumes
-  it from a `FunctionResponse` on a fresh run. `SequentialAgent` resumes at the next
-  sub-agent rather than replaying the whole chain.
+  it from a `FunctionResponse` on a fresh run. Two observed details: the pause
+  surfaces as an `adk_request_confirmation` long-running call (answer *that* with
+  `{"confirmed": true}`, or answer the original tool call with your own payload —
+  both resume), and on resume `SequentialAgent` re-runs the chain from the first
+  sub-agent before the parked tool resolves, so don't be surprised to see screening
+  spans twice for an escalated report.
+- **Agent Identity's bound tokens are not accepted everywhere.** The default
+  Context-Aware Access policy binds the agent's tokens to its mTLS certificate.
+  Services that validate the binding (aiplatform) accept them; Model Armor's regional
+  `modelarmor.LOCATION.rep.googleapis.com` endpoint and even
+  `iamcredentials.generateAccessToken` reject them with
+  `401 Request had invalid authentication credentials` — which reads like missing IAM
+  but is not (missing IAM is a 403). Two-part fix: the security tools impersonate a
+  dedicated `fleet-security` service account (the agent principal set holds only
+  `serviceAccountTokenCreator` on it), and the deploy sets
+  `GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES=False` to opt out of token
+  binding so the impersonation hop itself authenticates. The opt-out is documented as
+  discouraged — the trade is anti-theft binding for interoperability, with blast
+  radius contained by the SA holding only `modelarmor.user` and `dlp.user`.
+- **The runtime injects `GOOGLE_CLOUD_PROJECT` as the project *number*.** Cloud DLP
+  rejects number-form parents with `400 Malformed parent field`. `deploy.py` ships
+  the id form under `FLEET_PROJECT_ID`, which `config.py` prefers.
 - **Don't hand-roll instrumentation either.** ADK ≥ 1.17 emits OpenTelemetry spans with
   no configuration. Attach one extra `SpanProcessor` to fan them out to SSE and you get
   the radar and the Cloud Trace audit trail from the same source of truth.

@@ -12,6 +12,8 @@ most common mistake with this stack:
 So: Armor guards the boundary, DLP cleans the payload. Both, in that order.
 """
 
+import google.auth
+from google.auth import impersonated_credentials
 from google.cloud import dlp_v2, modelarmor_v1
 from google.api_core import client_options as client_options_lib
 
@@ -45,6 +47,30 @@ _DEIDENTIFY_CONFIG = {
 
 _armor_client = None
 _dlp_client = None
+_security_credentials = None
+
+
+def _credentials():
+    """Credentials for the security-tool clients.
+
+    Agent Identity's bound tokens are accepted by global service endpoints but come
+    back 401 ("Expected OAuth 2 access token") from regional rep endpoints, which is
+    where Model Armor lives. Impersonating the fleet-security SA turns them into an
+    ordinary OAuth token that every endpoint accepts, while IAM on the SA still names
+    only the agent principal set. Returns None (ambient credentials) when no SA is
+    configured, so local development needs no extra setup.
+    """
+    global _security_credentials
+    if not config.SECURITY_SA:
+        return None
+    if _security_credentials is None:
+        source, _ = google.auth.default()
+        _security_credentials = impersonated_credentials.Credentials(
+            source_credentials=source,
+            target_principal=config.SECURITY_SA,
+            target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+    return _security_credentials
 
 
 def _armor():
@@ -52,9 +78,10 @@ def _armor():
     if _armor_client is None:
         # Model Armor is regional and requires an explicit endpoint override.
         _armor_client = modelarmor_v1.ModelArmorClient(
+            credentials=_credentials(),
             client_options=client_options_lib.ClientOptions(
                 api_endpoint=f"modelarmor.{config.SERVICE_LOCATION}.rep.googleapis.com"
-            )
+            ),
         )
     return _armor_client
 
@@ -62,7 +89,7 @@ def _armor():
 def _dlp():
     global _dlp_client
     if _dlp_client is None:
-        _dlp_client = dlp_v2.DlpServiceClient()
+        _dlp_client = dlp_v2.DlpServiceClient(credentials=_credentials())
     return _dlp_client
 
 
