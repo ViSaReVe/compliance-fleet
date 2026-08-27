@@ -13,11 +13,20 @@ rendered live as a reasoning-chain radar.
 Built on the **Gemini Enterprise Agent Platform** (GEAP): Agent Registry, Agent
 Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 
-> **Status: Day 1 of 6.** Submission deadline **Aug 31, 2026, 5:00 PM PT**.
-> This README describes the target system. The `backend/` and `frontend/` trees are
-> not committed yet — the Google Cloud bootstrap in [Setup](#setup) is runnable today,
-> the application steps become runnable as the tree lands. Every API, flag, and import
-> below was verified against ADK 2.7.1 and current GEAP docs, not assumed.
+> **Status: Day 2 of 6.** Submission deadline **Aug 31, 2026, 5:00 PM PT**.
+>
+> **Running today:** the Agent Radar UI, and a local reference pipeline
+> (`backend/devtools/`) that computes real verdicts from `policies/rules.yaml` and
+> streams the locked trace contract over SSE. `python3 backend/devtools/run_eval.py`
+> passes 13/13.
+>
+> **Not built yet:** every Google Cloud component. No Gemini call, no ADK agent, no
+> Agent Registry / Agent Runtime / Memory Bank / Model Armor / Cloud DLP yet — see
+> [Current state](#current-state) for the exact seam. `backend/devtools/` is a
+> deliberate stand-in and gets deleted when `backend/fleet/` lands.
+>
+> Every API, flag, and import below was verified against ADK 2.7.1 and current GEAP
+> docs, not assumed.
 
 ---
 
@@ -122,6 +131,36 @@ production data without breaking compliance. Point-by-point:
 
 ---
 
+## Current state
+
+Honest split of what runs versus what is still a diagram. The whole point of
+`backend/devtools/` is that the radar, the orchestration sequencing, and the trace
+contract are already proven end-to-end, so the GCP work drops into a validated
+interface instead of being debugged against a moving frontend.
+
+| Piece | State | Where |
+| :--- | :--- | :--- |
+| Radar UI, sweep, drawer, SSE client | **Working** | `frontend/src/` |
+| Trace contract over SSE | **Working** | `backend/devtools/local_server.py` |
+| Policy rule engine + verdicts | **Working** | `backend/devtools/rule_engine.py` |
+| Pause/resume for escalated reports | **Working** (local) | `/pending`, `/approve/:id`, `/deny/:id` |
+| Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` |
+| 13-case eval set | **Passing 13/13** | `python3 backend/devtools/run_eval.py` |
+| Gemini field extraction | Not built | → `backend/fleet/screening.py` |
+| Model Armor + Cloud DLP | Regex stand-in | → `backend/fleet/compliance.py` |
+| Agent Registry / Identity / Runtime | Not built | → `backend/fleet/{register,deploy}.py` |
+| Memory Bank | Not built | → `backend/fleet/orchestrator.py` |
+| ADK-native OpenTelemetry spans | Hand-emitted | → `backend/fleet/telemetry.py` |
+
+**The integration seam.** `local_server.py` emits `agent` and `report_id` as
+top-level fields. Real ADK spans carry neither — `telemetry.py` must inject them as
+span attributes and flatten them into the same shape, so the frontend needs no change
+when the real fleet replaces the stand-in. Real ADK will also add `call_llm` and
+`generate_content` spans the local pipeline never produces; the radar already ignores
+span names it has no node for.
+
+---
+
 ## The trace contract
 
 This is the interface between the agent fleet and the radar. **Locked on Day 1.**
@@ -208,6 +247,15 @@ gcloud model-armor floorsettings update \
 ```
 
 ### 3. Backend
+
+**Today** — the local reference pipeline. No GCP, no cost, no dependencies:
+
+```bash
+python3 backend/devtools/run_eval.py     # 13/13 expected
+python3 backend/devtools/local_server.py # serves /events on :8000
+```
+
+**Once `backend/fleet/` lands** — the real fleet, same URL:
 
 ```bash
 cd backend
@@ -304,21 +352,29 @@ pass on Day 5/6 to catch a bad rule or prompt before it's on video, not ongoing 
 
 ```
 backend/
-  fleet/
-    orchestrator.py    # SequentialAgent, Registry resolution, Memory Bank
-    screening.py       # extraction + policy rules
-    compliance.py      # Model Armor + Cloud DLP + verdict
-    approval.py        # LongRunningFunctionTool pause/resume
-    telemetry.py       # SpanProcessor → SSE fan-out
-    server.py          # API + /events
-    deploy.py          # Agent Runtime deploy w/ Agent Identity
-    register.py        # Agent Registry publication
+  devtools/            # TEMPORARY local stand-in — deleted when fleet/ lands
+    local_server.py    #   serves the real /events contract, zero GCP cost
+    decision.py        #   shared verdict logic (server + eval can't drift)
+    rule_engine.py     #   policy matching
+    rules_loader.py    #   rules.yaml parsing
+    pii_scan.py        #   regex stand-in for Model Armor + Cloud DLP
+    agent_gateway.py   #   allowlist stand-in for Agent Gateway/Identity
+    run_eval.py        #   no-LLM eval runner
+  fleet/               # NOT BUILT YET — the real fleet
+    orchestrator.py    #   SequentialAgent, Registry resolution, Memory Bank
+    screening.py       #   Gemini extraction + policy rules
+    compliance.py      #   Model Armor + Cloud DLP + verdict
+    approval.py        #   LongRunningFunctionTool pause/resume
+    telemetry.py       #   SpanProcessor → SSE fan-out
+    server.py          #   API + /events
+    deploy.py          #   Agent Runtime deploy w/ Agent Identity
+    register.py        #   Agent Registry publication
   policies/rules.yaml
-  fixtures/reports/    # ~10-15 cases incl. the five demo reports
+  fixtures/reports/    # 13 cases incl. the five demo reports
 frontend/
   src/                 # radar, drawer, SSE client
 evals/
-  eval_set.json        # expected verdict per fixture, run once via `adk eval`
+  eval_set.json        # expected verdict per fixture
 docs/
   architecture.png
 ```
