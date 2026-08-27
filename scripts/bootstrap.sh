@@ -31,6 +31,9 @@ else
 fi
 
 gcloud config set project "$PROJECT_ID"
+# Without this, client libraries bill quota to gcloud's own client-id project and fail
+# with "quota exceeded" or "API not enabled" even though the API is enabled here.
+gcloud auth application-default set-quota-project "$PROJECT_ID" 2>/dev/null || true
 
 echo
 echo "==> Environment check"
@@ -68,6 +71,7 @@ gcloud services enable \
   modelarmor.googleapis.com \
   dlp.googleapis.com \
   cloudtrace.googleapis.com \
+  telemetry.googleapis.com \
   logging.googleapis.com \
   monitoring.googleapis.com \
   storage.googleapis.com \

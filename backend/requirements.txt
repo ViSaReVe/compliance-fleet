@@ -2,5 +2,6 @@ google-adk[agent-identity,mcp,a2a]==2.7.1
 google-cloud-aiplatform[agent_engines,adk]>=1.112.0
 google-cloud-modelarmor>=0.2.0
 google-cloud-dlp>=3.27.0
-opentelemetry-exporter-gcp-trace>=1.9.0
+opentelemetry-exporter-otlp-proto-grpc>=1.29.0
+opentelemetry-resourcedetector-gcp>=1.9.0a0
 PyYAML>=6.0.2

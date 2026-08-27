@@ -124,7 +124,15 @@ def redact(text):
             request={
                 "parent": f"projects/{config.PROJECT_ID}/locations/{config.LOCATION}",
                 "deidentify_config": _DEIDENTIFY_CONFIG,
-                "inspect_config": {"info_types": INFO_TYPES},
+                "inspect_config": {
+                    "info_types": INFO_TYPES,
+                    # Pinned rather than left default so behaviour cannot shift under
+                    # us. Do NOT lower this to UNLIKELY: at that threshold a card
+                    # number also matches PHONE_NUMBER and gets double-redacted as
+                    # "[REDACTED_CREDIT_CARD_NUMBER][REDACTED_PHONE_NUMBER]", which
+                    # looks like a bug on video. Verified live against the project.
+                    "min_likelihood": dlp_v2.Likelihood.POSSIBLE,
+                },
                 "item": {"value": text},
             }
         )

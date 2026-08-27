@@ -19,6 +19,7 @@ import queue
 import threading
 
 from opentelemetry import trace
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanProcessor
 
@@ -131,6 +132,34 @@ class RadarSpanProcessor(SpanProcessor):
         return True
 
 
+def _cloud_exporter():
+    """OTLP exporter pointed at the Telemetry API.
+
+    CloudTraceSpanExporter is deprecated and writes nothing visible on a current
+    project — spans are accepted and silently never appear in Cloud Trace, which is
+    the worst possible failure mode for the one artifact that proves the backend runs
+    on Google Cloud. The supported path is OTLP over gRPC to telemetry.googleapis.com
+    with ADC-derived channel credentials, and it requires telemetry.googleapis.com to
+    be enabled on the project.
+    """
+    import google.auth
+    import google.auth.transport.grpc
+    import google.auth.transport.requests
+    import grpc
+    from google.auth.transport.grpc import AuthMetadataPlugin
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+    credentials, _ = google.auth.default()
+    auth_plugin = AuthMetadataPlugin(
+        credentials=credentials, request=google.auth.transport.requests.Request()
+    )
+    channel_creds = grpc.composite_channel_credentials(
+        grpc.ssl_channel_credentials(),
+        grpc.metadata_call_credentials(auth_plugin),
+    )
+    return OTLPSpanExporter(endpoint="telemetry.googleapis.com", credentials=channel_creds)
+
+
 _initialised = False
 
 
@@ -141,16 +170,21 @@ def init(export_to_cloud_trace=True):
     global _initialised
     if _initialised:
         return
-    provider = TracerProvider()
+    # The Telemetry API rejects spans whose resource lacks gcp.project_id with
+    # INVALID_ARGUMENT, and BatchSpanProcessor swallows that into a log line — so the
+    # fleet keeps running while nothing reaches Cloud Trace. Set it explicitly.
+    resource = Resource.create(
+        {
+            "gcp.project_id": config.PROJECT_ID,
+            SERVICE_NAME: "compliance-fleet",
+        }
+    )
+    provider = TracerProvider(resource=resource)
     provider.add_span_processor(RadarSpanProcessor())
 
     if export_to_cloud_trace:
         try:
-            from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-
-            provider.add_span_processor(
-                BatchSpanProcessor(CloudTraceSpanExporter(project_id=config.PROJECT_ID))
-            )
+            provider.add_span_processor(BatchSpanProcessor(_cloud_exporter()))
         except Exception as exc:  # noqa: BLE001 - never let telemetry break the fleet
             print(f"[telemetry] Cloud Trace export disabled: {exc}")
 

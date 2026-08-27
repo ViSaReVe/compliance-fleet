@@ -152,10 +152,13 @@ interface instead of being debugged against a moving frontend.
 | Memory Bank | **Written, unverified** | `backend/fleet/orchestrator.py` |
 | ADK-native OpenTelemetry spans | **Written, unverified** | `backend/fleet/telemetry.py` |
 
-"Written, unverified" means the module imports cleanly against ADK 2.7.1 and its
-request shapes were checked field-by-field against the installed protos, but it has
-never made a live Google Cloud call. Nothing in `fleet/` counts as working until it
-runs against a real project.
+All of the above now run against project `nice-hangar-506120-t5` (org `usc.edu`).
+Verified live: Model Armor blocks injection and passes benign text, Cloud DLP redacts
+card / SSN / email / address, all 13 fixtures produce their expected verdict, and
+spans land in Cloud Trace carrying every `fleet.*` attribute.
+
+Still unverified: Agent Runtime deploy, Agent Registry registration, Agent Identity
+bindings, and Memory Bank — `deploy.py` and `register.py` have not been run.
 
 **The integration seam.** `local_server.py` emits `agent` and `report_id` as
 top-level fields. Real ADK spans carry neither — `telemetry.py` must inject them as
@@ -334,6 +337,22 @@ Things we got wrong first, corrected here so nobody re-learns them:
   `scripts/bootstrap.sh` detects which case applies and writes the right one to
   `backend/.env` as `AGENT_PRINCIPAL_SET`. Getting this wrong produces IAM bindings that
   apply to nothing and fail silently.
+- **`CloudTraceSpanExporter` is deprecated and fails silently.** It accepts spans and
+  they never appear in Cloud Trace. The supported path is OTLP over gRPC to
+  `telemetry.googleapis.com` — which needs `telemetry.googleapis.com` enabled, and a
+  resource carrying `gcp.project_id` or the API returns `INVALID_ARGUMENT`.
+  `BatchSpanProcessor` swallows that into a log line, so the fleet keeps running while
+  the audit trail stays empty. This is the one failure worth checking twice: Cloud
+  Trace is the artifact that proves the backend runs on Google Cloud.
+- **Set the ADC quota project.** After `gcloud auth application-default login`, run
+  `gcloud auth application-default set-quota-project PROJECT_ID`. Without it, client
+  libraries bill quota to gcloud's own client-id project and fail with "API not
+  enabled" for APIs that are demonstrably enabled.
+- **`123-45-6789` is not a detectable SSN.** Cloud DLP excludes it at every likelihood
+  threshold, so a fixture using it silently shows zero redactions. Use a
+  pattern-valid synthetic SSN instead. Do not compensate by lowering `min_likelihood`
+  to `UNLIKELY`: at that threshold card numbers also match `PHONE_NUMBER` and get
+  double-redacted.
 - **Don't hand-roll the pause/resume.** ADK already parks a run on
   `tool_context.request_confirmation()` inside a `LongRunningFunctionTool` and resumes
   it from a `FunctionResponse` on a fresh run. `SequentialAgent` resumes at the next
