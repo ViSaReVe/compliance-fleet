@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0010",
+  "submitted_by": "employee_028",
+  "amount_usd": 30.00,
+  "category": "meals",
+  "merchant": "Quick Bites Cafe",
+  "expense_date": "2026-08-25",
+  "description": "Solo lunch during travel day.",
+  "receipt_attached": true,
+  "receipt_ocr_text": "Quick Bites Cafe\nTotal: $30.00\nCustomer ID on file, SSN: 123-45-6789 for loyalty program",
+  "requested_preapproval": false
+}

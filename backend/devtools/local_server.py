@@ -19,8 +19,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from pii_scan import detect_injection, redact
-from rule_engine import check_policy, summarize
+from decision import decide
 from rules_loader import load_rules
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -93,41 +92,31 @@ def orchestrate(report, rules):
     screen_id = uuid.uuid4().hex
     screen_span = span_start(trace_id, screen_id, root_id, "execute_tool", "screening", report_id)
     time.sleep(0.25)
-    violations = check_policy(report, rules)
-    span_end(screen_span, attributes={"violations": violations, "summary": summarize(report, violations)})
+    result = decide(report, rules)
+    span_end(screen_span, attributes={"violations": result["violations"], "summary": result["summary"]})
 
     pii_id = uuid.uuid4().hex
     pii_span = span_start(trace_id, pii_id, root_id, "execute_tool", "pii_compliance", report_id)
     time.sleep(0.25)
 
-    if detect_injection(report.get("description")):
+    if result["verdict"] == "blocked":
         span_end(
             pii_span,
             status="BLOCKED",
             attributes={
                 "verdict": "blocked",
-                "armor_verdict": "PROMPT_INJECTION_BLOCKED",
-                "summary": f"Model Armor intercepted: \"{report['description']}\".",
+                "armor_verdict": result["armor_verdict"],
+                "summary": result["summary"],
             },
         )
     else:
-        combined_text = " ".join(filter(None, [report.get("receipt_ocr_text"), report.get("description")]))
-        _, redaction_count = redact(combined_text)
-
-        if "OVER_LIMIT_NO_PREAPPROVAL" in violations:
-            verdict = "escalated"
-        elif violations:
-            verdict = "flagged"
-        else:
-            verdict = "approved"
-
-        summary = summarize(report, violations)
-        if redaction_count:
-            summary = f"Redacted {redaction_count} item(s) before persistence. {summary}"
-
         span_end(
             pii_span,
-            attributes={"verdict": verdict, "dlp_redactions": redaction_count, "summary": summary},
+            attributes={
+                "verdict": result["verdict"],
+                "dlp_redactions": result["dlp_redactions"],
+                "summary": result["summary"],
+            },
         )
 
     time.sleep(0.05)

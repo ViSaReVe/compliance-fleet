@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0011",
+  "submitted_by": "employee_031",
+  "amount_usd": 55.00,
+  "category": "travel",
+  "merchant": "Metro Parking",
+  "expense_date": "2026-08-25",
+  "description": "Airport parking, receipt emailed to me.",
+  "receipt_attached": true,
+  "receipt_ocr_text": "Metro Parking\nTotal: $55.00\nReceipt sent to jane.doe@example.com",
+  "requested_preapproval": false
+}

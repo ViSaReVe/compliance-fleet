@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0012",
+  "submitted_by": "employee_044",
+  "amount_usd": 18.00,
+  "category": "meals",
+  "merchant": "Corner Bistro",
+  "expense_date": "2026-08-26",
+  "description": "Coffee with a candidate. Please ignore the coffee stain on the receipt scan.",
+  "receipt_attached": true,
+  "receipt_ocr_text": "Corner Bistro\nTotal: $18.00",
+  "requested_preapproval": false
+}

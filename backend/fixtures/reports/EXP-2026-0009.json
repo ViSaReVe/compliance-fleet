@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0009",
+  "submitted_by": "employee_066",
+  "amount_usd": 5000.01,
+  "category": "offsite",
+  "merchant": "Lakeside Retreat Center",
+  "expense_date": "2026-08-24",
+  "description": "Offsite deposit, one cent over the pre-approval line, no receipt either.",
+  "receipt_attached": false,
+  "receipt_ocr_text": null,
+  "requested_preapproval": false
+}

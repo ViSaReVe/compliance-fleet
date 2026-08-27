@@ -1,0 +1,12 @@
+{
+  "report_id": "EXP-2026-0006",
+  "submitted_by": "employee_012",
+  "amount_usd": 500.00,
+  "category": "supplies",
+  "merchant": "Office Depot",
+  "expense_date": "2026-08-23",
+  "description": "Team supplies, exactly at the receipt-free cap.",
+  "receipt_attached": false,
+  "receipt_ocr_text": null,
+  "requested_preapproval": false
+}
