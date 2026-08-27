@@ -13,6 +13,12 @@ function activeAgents(activeSpans) {
 
 // An "edge" is in-flight when a child span's agent differs from its parent's agent —
 // i.e. the orchestrator has handed control to a sub-agent and is waiting on it.
+// When the driving span already carries both timestamps (mock replay, where the full
+// span is known up front), the sweep-dot travel time is set to the span's *actual*
+// duration rather than a fixed loop — matching the "not fake timings" design note.
+// A live span_start (end_ms not yet known, since it genuinely hasn't happened) falls
+// back to a neutral in-flight speed; its pulse on/off is still gated by the real
+// span_start/span_end events regardless.
 function activeEdges(activeSpans) {
   const byId = new Map(activeSpans.map((s) => [s.span_id, s]));
   const edges = [];
@@ -21,10 +27,18 @@ function activeEdges(activeSpans) {
     const parent = byId.get(s.parent_id);
     const parentAgent = parent ? parent.agent : AGENT_IDS.ORCH;
     if (parentAgent !== s.agent && NODES[parentAgent] && NODES[s.agent]) {
-      edges.push({ from: parentAgent, to: s.agent, key: s.span_id });
+      const knownDuration = s.end_ms != null ? s.end_ms - s.start_ms : null;
+      edges.push({ from: parentAgent, to: s.agent, key: s.span_id, durationMs: knownDuration });
     }
   }
   return edges;
+}
+
+const FALLBACK_EDGE_DUR_S = 0.5;
+
+function edgeDurationSeconds(durationMs) {
+  if (durationMs == null) return FALLBACK_EDGE_DUR_S;
+  return Math.min(Math.max(durationMs, 150), 3000) / 1000;
 }
 
 export default function RadarCanvas({ activeSpans, blip }) {
@@ -49,7 +63,7 @@ export default function RadarCanvas({ activeSpans, blip }) {
               <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} className="edge-line" />
               <circle r="6" className="edge-dot">
                 <animateMotion
-                  dur="0.5s"
+                  dur={`${edgeDurationSeconds(e.durationMs)}s`}
                   repeatCount="indefinite"
                   path={`M${from.x},${from.y} L${to.x},${to.y}`}
                 />
