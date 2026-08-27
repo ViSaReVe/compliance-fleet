@@ -284,6 +284,22 @@ Five reports, one per code path:
 
 ---
 
+## Eval set
+
+The five demo scenarios above are for the camera, not for confidence. Before recording,
+`fixtures/reports/` grows to ~10-15 cases (edge amounts right at the $500/$5,000
+thresholds, multiple violations on one report, borderline PII, near-miss injection
+phrasing) each with an expected verdict, collected into `evals/eval_set.json`. Run once:
+
+```bash
+adk eval backend/fleet evals/eval_set.json
+```
+
+This is a validation gate at the end of the pipeline, not a new subsystem — one sanity
+pass on Day 5/6 to catch a bad rule or prompt before it's on video, not ongoing CI.
+
+---
+
 ## Repo layout
 
 ```
@@ -298,9 +314,11 @@ backend/
     deploy.py          # Agent Runtime deploy w/ Agent Identity
     register.py        # Agent Registry publication
   policies/rules.yaml
-  fixtures/reports/    # the five demo reports
+  fixtures/reports/    # ~10-15 cases incl. the five demo reports
 frontend/
   src/                 # radar, drawer, SSE client
+evals/
+  eval_set.json        # expected verdict per fixture, run once via `adk eval`
 docs/
   architecture.png
 ```
@@ -317,8 +335,8 @@ Six working days, then submit. Day 7 is deadline day, not a work day.
 | **2** | Screening Agent + policy rules + Memory Bank | `SpanProcessor` → SSE; radar consumes live stream |
 | **3** | Orchestrator + PII Agent (Model Armor + DLP); deploy to Agent Runtime | Node pulse + sweep off real spans |
 | **4** | Agent Registry registration + Agent Identity; denied-access demo | Reasoning-chain drawer |
-| **5** | `request_confirmation()` pause/resume manager approval | Model Armor red intercept; visual polish |
-| **6** | Five demo fixtures, bug bash, verify this README from scratch | Demo rehearsal, video cuts |
+| **5** | `request_confirmation()` pause/resume manager approval; expand fixtures to ~10-15 cases + `evals/eval_set.json` | Model Armor red intercept; visual polish |
+| **6** | Run `adk eval` once as a pre-demo sanity gate; bug bash; verify this README from scratch | Demo rehearsal, video cuts |
 | **7** | Record video by noon; submit by 3 PM PT | Final deploy, Devpost form |
 
 ---
