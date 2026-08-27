@@ -146,11 +146,16 @@ interface instead of being debugged against a moving frontend.
 | Pause/resume for escalated reports | **Working** (local) | `/pending`, `/approve/:id`, `/deny/:id` |
 | Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` |
 | 13-case eval set | **Passing 13/13** | `python3 backend/devtools/run_eval.py` |
-| Gemini field extraction | Not built | → `backend/fleet/screening.py` |
-| Model Armor + Cloud DLP | Regex stand-in | → `backend/fleet/compliance.py` |
-| Agent Registry / Identity / Runtime | Not built | → `backend/fleet/{register,deploy}.py` |
-| Memory Bank | Not built | → `backend/fleet/orchestrator.py` |
-| ADK-native OpenTelemetry spans | Hand-emitted | → `backend/fleet/telemetry.py` |
+| Gemini field extraction | **Written, unverified** | `backend/fleet/screening.py` |
+| Model Armor + Cloud DLP | **Written, unverified** | `backend/fleet/compliance.py` |
+| Agent Registry / Identity / Runtime | **Written, unverified** | `backend/fleet/{register,deploy}.py` |
+| Memory Bank | **Written, unverified** | `backend/fleet/orchestrator.py` |
+| ADK-native OpenTelemetry spans | **Written, unverified** | `backend/fleet/telemetry.py` |
+
+"Written, unverified" means the module imports cleanly against ADK 2.7.1 and its
+request shapes were checked field-by-field against the installed protos, but it has
+never made a live Google Cloud call. Nothing in `fleet/` counts as working until it
+runs against a real project.
 
 **The integration seam.** `local_server.py` emits `agent` and `report_id` as
 top-level fields. Real ADK spans carry neither — `telemetry.py` must inject them as
