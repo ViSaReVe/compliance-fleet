@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { blipFromSpan } from "./blip";
 
 // Plays a scenario's spans back on real relative timing via setTimeout, exactly the
 // shape a Day-2 SSE client will produce from the live /events stream: span-start and
@@ -28,8 +29,9 @@ export function useTracePlayer() {
         const endTimer = setTimeout(() => {
           setActiveSpans((prev) => prev.filter((a) => a.span_id !== s.span_id));
           setCompletedSpans((prev) => [s, ...prev]);
-          if (s.status === "BLOCKED") {
-            setBlip({ agent: s.agent, summary: s.attributes?.summary });
+          const blip = blipFromSpan(s);
+          if (blip) {
+            setBlip(blip);
             setTimeout(() => setBlip(null), 1600);
           }
         }, s.end_ms);

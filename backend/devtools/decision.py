@@ -8,9 +8,17 @@ from pii_scan import detect_injection, redact
 from rule_engine import check_policy, summarize
 
 
-def decide(report, rules):
-    violations = check_policy(report, rules)
+def screen(report, rules):
+    """The screening.check_policy capability — only this piece needs policy rules."""
+    return check_policy(report, rules)
 
+
+def compliance_decide(report, violations):
+    """The pii_compliance.decide capability — injection check, redaction, verdict.
+    Deliberately takes already-computed violations rather than rules/report alone,
+    so it has no access to raw policy thresholds — mirrors the README's "PII Agent
+    cannot modify policy rules" boundary even in this local stand-in.
+    """
     if detect_injection(report.get("description")):
         return {
             "verdict": "blocked",
@@ -41,3 +49,11 @@ def decide(report, rules):
         "dlp_redactions": redaction_count,
         "summary": summary,
     }
+
+
+def decide(report, rules):
+    """Convenience composition of screen() + compliance_decide() for callers (like
+    run_eval.py) that don't need the two capabilities gateway-mediated separately.
+    """
+    violations = screen(report, rules)
+    return compliance_decide(report, violations)

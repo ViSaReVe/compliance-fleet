@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { blipFromSpan } from "./blip";
 
 // Consumes the real /events SSE stream (README Setup step 3 — backend/fleet/telemetry.py).
 // Same return shape as useTracePlayer.js so RadarCanvas/AuditDrawer don't care which
@@ -30,8 +31,9 @@ export function useLiveTraceStream(url) {
       const span = JSON.parse(e.data);
       setActiveSpans((prev) => prev.filter((a) => a.span_id !== span.span_id));
       setCompletedSpans((prev) => [span, ...prev]);
-      if (span.status === "BLOCKED") {
-        setBlip({ agent: span.agent, summary: span.attributes?.summary });
+      const blip = blipFromSpan(span);
+      if (blip) {
+        setBlip(blip);
         setTimeout(() => setBlip(null), 1600);
       }
     });

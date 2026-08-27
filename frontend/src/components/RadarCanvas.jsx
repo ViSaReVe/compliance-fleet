@@ -95,7 +95,7 @@ export default function RadarCanvas({ activeSpans, blip }) {
 
       {blip && (
         <div className="toast toast--blip">
-          Model Armor blocked: {blip.summary}
+          {blip.label}: {blip.summary}
         </div>
       )}
     </div>

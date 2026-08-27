@@ -19,7 +19,9 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from decision import decide
+from agent_gateway import GatewayDenied, gateway_call
+from decision import compliance_decide, screen
+from rule_engine import summarize
 from rules_loader import load_rules
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -101,12 +103,15 @@ def orchestrate(report, rules):
     screen_id = uuid.uuid4().hex
     screen_span = span_start(trace_id, screen_id, root_id, "execute_tool", "screening", report_id)
     time.sleep(0.25)
-    result = decide(report, rules)
-    span_end(screen_span, attributes={"violations": result["violations"], "summary": result["summary"]})
+    # Routed through the gateway like every inter-agent call — see agent_gateway.py.
+    violations = gateway_call("orchestrator", "screening.check_policy", screen, report, rules)
+    summary_so_far = summarize(report, violations)
+    span_end(screen_span, attributes={"violations": violations, "summary": summary_so_far})
 
     pii_id = uuid.uuid4().hex
     pii_span = span_start(trace_id, pii_id, root_id, "execute_tool", "pii_compliance", report_id)
     time.sleep(0.25)
+    result = gateway_call("orchestrator", "pii_compliance.decide", compliance_decide, report, violations)
 
     if result["verdict"] == "blocked":
         span_end(
@@ -178,6 +183,35 @@ def resolve_pending(report_id, decision_label):
     return True
 
 
+def run_denied_access_demo():
+    """Proves the README's Agent Gateway / Identity claim for real: the Screening
+    Agent has no route to the pii_compliance capability except through the
+    Orchestrator. Here it tries to call it directly, and the gateway actually
+    refuses — this is not a documented rule, it's an enforced one. Reuses the
+    existing "BLOCKED" status (the trace contract's status enum is OK|BLOCKED|ERROR)
+    with a denial_reason attribute, so the radar's existing red-blip handling
+    covers this without any new status value.
+    """
+    trace_id = uuid.uuid4().hex
+    span_id = uuid.uuid4().hex
+    report_id = "SECURITY-DEMO-GATEWAY"
+
+    span = span_start(trace_id, span_id, None, "execute_tool", "screening", report_id)
+    time.sleep(0.15)
+    try:
+        gateway_call("screening", "pii_compliance.decide", compliance_decide, {}, [])
+        span_end(span, attributes={"summary": "Unexpected: gateway allowed an unauthorized call."})
+    except GatewayDenied as denied:
+        span_end(
+            span,
+            status="BLOCKED",
+            attributes={
+                "denial_reason": "GATEWAY_ACCESS_DENIED",
+                "summary": f"Agent Gateway refused: {denied.caller} is not authorized to call {denied.capability}.",
+            },
+        )
+
+
 def run_loop():
     rules = load_rules(RULES_PATH)
     reports = load_fixtures()
@@ -191,6 +225,8 @@ def run_loop():
             already_pending = report["report_id"] in pending_approvals
         if not already_pending:
             orchestrate(report, rules)
+        if i % len(reports) == 2:
+            run_denied_access_demo()
         i += 1
         time.sleep(GAP_BETWEEN_REPORTS_S)
 
@@ -246,8 +282,8 @@ class EventsHandler(BaseHTTPRequestHandler):
                 frame = q.get()
                 self.wfile.write(frame.encode("utf-8"))
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
-            pass
+        except OSError:
+            pass  # client disconnected (BrokenPipeError, ConnectionAbortedError on Windows, etc.)
         finally:
             with clients_lock:
                 if q in clients:
