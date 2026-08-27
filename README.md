@@ -13,7 +13,7 @@ rendered live as a reasoning-chain radar.
 Built on the **Gemini Enterprise Agent Platform** (GEAP): Agent Registry, Agent
 Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 
-> **Status: Day 2 of 6.** Submission deadline **Aug 31, 2026, 5:00 PM PT**.
+> **Status: 4 days left.** Submission deadline **Aug 31, 2026, 5:00 PM PT**.
 >
 > **Running today:** the Agent Radar UI, and a local reference pipeline
 > (`backend/devtools/`) that computes real verdicts from `policies/rules.yaml` and
@@ -383,17 +383,26 @@ docs/
 
 ## Build plan
 
-Six working days, then submit. Day 7 is deadline day, not a work day.
+Four working days plus deadline morning. Aug 31 is a submission day, not a build day.
 
-| Day | Vidya — fleet & security | Sohan — radar & telemetry |
+The frontend and the orchestration contract are done. Everything remaining is Google
+Cloud, and it is all on one person — so the sequencing below front-loads the riskiest
+unknown (does a deployed Agent Runtime agent actually stream spans we can render?)
+into Day 1 rather than discovering it on Day 4.
+
+| Day | Vidya — fleet & security | Sohan — radar & integration |
 | :--- | :--- | :--- |
-| **1** | GCP bootstrap, APIs, credits, billing alert; lock trace contract | Radar UI on mock spans; lock trace contract |
-| **2** | Screening Agent + policy rules + Memory Bank | `SpanProcessor` → SSE; radar consumes live stream |
-| **3** | Orchestrator + PII Agent (Model Armor + DLP); deploy to Agent Runtime | Node pulse + sweep off real spans |
-| **4** | Agent Registry registration + Agent Identity; denied-access demo | Reasoning-chain drawer |
-| **5** | `request_confirmation()` pause/resume manager approval; expand fixtures to ~10-15 cases + `evals/eval_set.json` | Model Armor red intercept; visual polish |
-| **6** | Run `adk eval` once as a pre-demo sanity gate; bug bash; verify this README from scratch | Demo rehearsal, video cuts |
-| **7** | Record video by noon; submit by 3 PM PT | Final deploy, Devpost form |
+| **Thu 27** | gcloud + credits + project bootstrap, all APIs, Model Armor template. `screening.py` with Gemini extraction + Memory Bank. **Deploy one agent to Agent Runtime end-to-end and confirm spans reach Cloud Trace.** | Radar resilience: reconnect on SSE drop, tolerate unknown span names, handle `call_llm`/`generate_content` arriving |
+| **Fri 28** | `compliance.py` (Model Armor + Cloud DLP), `orchestrator.py`, `telemetry.py` SpanProcessor → SSE | Cut frontend from `devtools/` to `fleet/`; verify contract parity; drawer shows LLM reasoning steps |
+| **Sat 29** | Agent Registry registration + Agent Identity deploy; replace the allowlist with real per-agent IAM denial | Model Armor red intercept on real spans; visual polish |
+| **Sun 30** | `request_confirmation()` pause/resume on Agent Runtime; eval pass; bug bash; verify this README from a clean clone | Demo rehearsal, video cuts, architecture diagram |
+| **Mon 31** | Record video by 10 AM PT. **Submit by 3 PM PT** — two hours of margin, not zero. | Final deploy, Devpost form, GCP proof screenshots |
+
+**Explicitly out of scope.** The full Agent Gateway path (Terraform + Private Service
+Connect + IAP service extensions) is a multi-day build on its own. Agent Registry +
+Agent Identity + Model Armor floor settings deliver the same governance story for the
+track at a fraction of the cost. `backend/devtools/agent_gateway.py` stays until real
+per-agent IAM lands on Day 3, and is described as a stand-in wherever it appears.
 
 ---
 
