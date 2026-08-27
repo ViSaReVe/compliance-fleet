@@ -14,8 +14,22 @@ BUCKET="gs://${PROJECT_ID}-agent-staging"
 command -v gcloud >/dev/null || { echo "gcloud not installed: brew install --cask google-cloud-sdk"; exit 1; }
 
 echo "==> Authenticating"
-gcloud auth login --brief
-gcloud auth application-default login --brief
+# Both logins are skipped when already present, so re-running costs no browser round
+# trips. Note --brief exists on `auth login` but NOT on `auth application-default
+# login`; passing it there fails with "unrecognized arguments".
+if gcloud auth list --filter=status:ACTIVE --format='value(account)' | grep -q .; then
+  echo "    already signed in as $(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+else
+  gcloud auth login --brief
+fi
+
+ADC_FILE="${CLOUDSDK_CONFIG:-$HOME/.config/gcloud}/application_default_credentials.json"
+if [[ -f "$ADC_FILE" ]]; then
+  echo "    application-default credentials already present"
+else
+  gcloud auth application-default login
+fi
+
 gcloud config set project "$PROJECT_ID"
 
 echo
