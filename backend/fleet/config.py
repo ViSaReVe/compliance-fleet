@@ -55,6 +55,18 @@ AGENT_ENGINE_ID = os.environ.get("AGENT_ENGINE_ID", "")
 
 MODEL = os.environ.get("FLEET_MODEL", "gemini-3.5-flash")
 
+# gemini-3.5-flash is served from the `global` endpoint, NOT from us-central1 — a
+# bare model id resolves against GOOGLE_CLOUD_LOCATION and fails with "Publisher
+# model ... was not found" once deployed. Agent Runtime, Memory Bank and Agent
+# Registry all stay regional; only model resolution goes global, via a
+# fully-qualified path that ignores GOOGLE_CLOUD_LOCATION entirely.
+MODEL_LOCATION = os.environ.get("FLEET_MODEL_LOCATION", "global")
+MODEL_PATH = (
+    MODEL
+    if MODEL.startswith("projects/")
+    else f"projects/{PROJECT_ID}/locations/{MODEL_LOCATION}/publishers/google/models/{MODEL}"
+)
+
 # Routes the GenAI SDK at the enterprise platform rather than the public Gemini API.
 os.environ.setdefault("GOOGLE_GENAI_USE_ENTERPRISE", "TRUE")
 os.environ.setdefault("GOOGLE_CLOUD_PROJECT", PROJECT_ID)

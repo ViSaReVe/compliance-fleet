@@ -12,7 +12,7 @@ Run once to create the Memory Bank instance and deploy:
 Then put the printed AGENT_ENGINE_ID into backend/.env.
 """
 
-import vertexai
+import agentplatform
 from vertexai import types
 from vertexai.agent_engines import AdkApp
 
@@ -20,7 +20,9 @@ from . import config, orchestrator
 
 
 def client():
-    return vertexai.Client(
+    # vertexai.Client is deprecated in favour of agentplatform.Client. They are
+    # different classes, not an alias, so this is a real swap rather than cosmetic.
+    return agentplatform.Client(
         project=config.PROJECT_ID,
         location=config.LOCATION,
         http_options={"api_version": "v1beta1"},
@@ -29,14 +31,18 @@ def client():
 
 def create_memory_bank():
     """Memory Bank instance. Its id is also the agent engine id used for sessions."""
+    # generation_config is NOT a top-level AgentEngineConfig field — passing it there
+    # fails pydantic validation with "Extra inputs are not permitted". Memory Bank
+    # settings live under context_spec.memory_bank_config.
     engine = client().agent_engines.create(
         config={
             "display_name": "expense-compliance-memory",
-            "generation_config": {
-                "model": (
-                    f"projects/{config.PROJECT_ID}/locations/{config.LOCATION}"
-                    f"/publishers/google/models/{config.MODEL}"
-                )
+            "context_spec": {
+                "memory_bank_config": {
+                    "generation_config": {
+                        "model": config.MODEL_PATH
+                    }
+                }
             },
         }
     )
@@ -53,11 +59,27 @@ def deploy_fleet():
         config={
             "display_name": "expense-compliance-fleet",
             "identity_type": types.IdentityType.AGENT_IDENTITY,
+            # The remote GenAI client builds its endpoint from GOOGLE_CLOUD_LOCATION.
+            # Left at us-central1 it calls us-central1-aiplatform.googleapis.com, which
+            # cannot serve a locations/global publisher model however the path is
+            # written — so gemini-3.5-flash 404s in the runtime while working locally.
+            "env_vars": {
+                "GOOGLE_CLOUD_LOCATION": config.MODEL_LOCATION,
+                "GOOGLE_GENAI_USE_ENTERPRISE": "TRUE",
+            },
             "staging_bucket": config.STAGING_BUCKET,
+            # pydantic and cloudpickle are not optional. The deploy warns
+            # "The following requirements are missing: {'pydantic', 'cloudpickle'}"
+            # and then succeeds anyway — but the agent object never rehydrates in the
+            # remote environment, so the engine comes up exposing only session and
+            # memory methods and every query returns "User-specified method
+            # `async_stream_query` not found".
             "requirements": [
                 "google-cloud-aiplatform[agent_engines,adk]",
                 "google-cloud-modelarmor",
                 "google-cloud-dlp",
+                "cloudpickle",
+                "pydantic",
                 "PyYAML",
             ],
         },

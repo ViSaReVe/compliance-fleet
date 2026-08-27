@@ -74,7 +74,7 @@ def resolve_sub_agents():
 
 def build_compliance_agent():
     return LlmAgent(
-        model=config.MODEL,
+        model=config.MODEL_PATH,
         name="pii_compliance",
         description=(
             "Screens expense text for prompt injection via Model Armor, redacts PII "

@@ -37,7 +37,7 @@ Rules:
 
 def build_agent():
     return LlmAgent(
-        model=config.MODEL,
+        model=config.MODEL_PATH,
         name="screening",
         description=(
             "Extracts structured expense fields from free-text submissions and "

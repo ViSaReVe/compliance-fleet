@@ -337,6 +337,29 @@ Things we got wrong first, corrected here so nobody re-learns them:
   `scripts/bootstrap.sh` detects which case applies and writes the right one to
   `backend/.env` as `AGENT_PRINCIPAL_SET`. Getting this wrong produces IAM bindings that
   apply to nothing and fail silently.
+- **`gemini-3.5-flash` is served from `global`, not `us-central1`.** A bare model id
+  resolves against `GOOGLE_CLOUD_LOCATION` and 404s with "Publisher model ... was not
+  found". Worse, a fully-qualified `locations/global/...` path is not enough on its
+  own: the deployed runtime builds its endpoint from `GOOGLE_CLOUD_LOCATION` too, so
+  it calls `us-central1-aiplatform.googleapis.com`, which cannot serve a global model
+  however the path is written. The fix is `env_vars={"GOOGLE_CLOUD_LOCATION": "global"}`
+  on the Agent Runtime deploy. Agent Runtime, Memory Bank and Agent Registry all stay
+  regional — only model resolution goes global.
+- **This never surfaces locally.** `orchestrator.decide()` is the deterministic path
+  and makes no model call, so the fleet passes every local test and then 404s the
+  moment it is deployed. Query the deployed engine before believing a deploy worked.
+- **Grant the agent identity IAM before first query.** `deploy.py` prints the
+  principal set; nothing grants it for you. Needs `roles/aiplatform.expressUser`,
+  `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user`.
+- **`generation_config` is not an `AgentEngineConfig` field.** It lives at
+  `context_spec.memory_bank_config.generation_config`; passing it top-level fails
+  pydantic validation with "Extra inputs are not permitted".
+- **`vertexai.Client` is deprecated in favour of `agentplatform.Client`** — different
+  classes, not an alias.
+- **Streaming methods are on `:streamQuery`, not `:query`.** `register_operations()`
+  lists `async_stream_query` under `async_stream`; calling it on `:query` returns
+  "method not found" and lists only the session methods, which looks like a broken
+  deploy but is a wrong endpoint.
 - **`CloudTraceSpanExporter` is deprecated and fails silently.** It accepts spans and
   they never appear in Cloud Trace. The supported path is OTLP over gRPC to
   `telemetry.googleapis.com` — which needs `telemetry.googleapis.com` enabled, and a
