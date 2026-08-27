@@ -204,6 +204,15 @@ for any ADK agent, and Cloud Trace shows the identical tree.
 
 ### 1. Bootstrap Google Cloud
 
+One idempotent script does all of it — auth, org detection, APIs, staging bucket,
+Model Armor template, and `backend/.env`:
+
+```bash
+./scripts/bootstrap.sh YOUR_PROJECT_ID
+```
+
+Run it as the Google account that holds the billing credits. What it does, manually:
+
 ```bash
 gcloud auth login
 gcloud auth application-default login
@@ -308,6 +317,18 @@ Things we got wrong first, corrected here so nobody re-learns them:
   ```bash
   pip install "google-adk[agent-identity,mcp,a2a]==2.7.1"
   ```
+- **Agent Identity principals differ for standalone projects.** Most docs show only the
+  organization form. A project with no organization — which is what you get creating a
+  project under a personal Google account — uses a different principal set entirely:
+  ```
+  # project inside an organization
+  principalSet://agents.global.org-ORG_ID.system.id.goog/attribute.platformContainer/aiplatform/projects/PROJECT_NUMBER
+  # standalone project, no organization
+  principalSet://agents.global.project-PROJECT_NUMBER.system.id.goog/attribute.platformContainer/aiplatform/projects/PROJECT_NUMBER
+  ```
+  `scripts/bootstrap.sh` detects which case applies and writes the right one to
+  `backend/.env` as `AGENT_PRINCIPAL_SET`. Getting this wrong produces IAM bindings that
+  apply to nothing and fail silently.
 - **Don't hand-roll the pause/resume.** ADK already parks a run on
   `tool_context.request_confirmation()` inside a `LongRunningFunctionTool` and resumes
   it from a `FunctionResponse` on a fresh run. `SequentialAgent` resumes at the next
@@ -373,6 +394,8 @@ backend/
   fixtures/reports/    # 13 cases incl. the five demo reports
 frontend/
   src/                 # radar, drawer, SSE client
+scripts/
+  bootstrap.sh         # idempotent GCP setup, writes backend/.env
 evals/
   eval_set.json        # expected verdict per fixture
 docs/
