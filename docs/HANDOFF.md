@@ -85,10 +85,10 @@ Three cutover bugs found and fixed, all invisible to the local eval:
 
 ## Remaining work, in order
 
-1. **Demo script + ~4-minute video.** Demo scenarios table in README is the outline.
-   Show: radar in live mode, injection red intercept, DLP redaction in the drawer,
-   Approve resuming a parked report, then `verify_deployed` + Cloud Trace as the
-   "it really runs on Google Cloud" proof.
+1. **Record the ~4-minute video.** Script is written: `docs/DEMO.md` — beat-by-beat
+   shot list, narration timed to 3:38 against the 3:55 cut, pre-flight checklist and
+   mid-take failure table. Beat 3's timing is measured, not assumed: the SSE
+   reconnect costs `EXP-2026-0001`, so narrate four scenarios, not five.
 2. **Hosted project URL** for the Devpost field. Cheapest credible option: `npm run
    build` the radar and serve `frontend/dist` from Cloud Run or a GCS bucket. Live
    mode needs the backend reachable too — decide whether the hosted copy ships in

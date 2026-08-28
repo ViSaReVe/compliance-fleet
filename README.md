@@ -551,7 +551,7 @@ Aug 31 is a submission day, not a build day.
 
 | When | Item |
 | :--- | :--- |
-| **Fri 29** | Demo script + record the ~4-minute video against the deployed engine |
+| **Fri 29** | Record the ~4-minute video — shot list, narration and timings in [`docs/DEMO.md`](docs/DEMO.md) |
 | **Fri 29** | Delete the three stale reasoning engines (`3279963582179049472`, `1114576586343972864`, `5958197985580941312`) so nobody queries the wrong one |
 | **Sat 30** | Verify this README from a clean clone: `bootstrap.sh` → `fleet.deploy` → `fleet.verify_deployed` |
 | **Sat 30** | Hosted radar URL for the Devpost "hosted project" field |
