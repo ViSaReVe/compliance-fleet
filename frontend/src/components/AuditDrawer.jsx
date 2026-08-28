@@ -24,6 +24,22 @@ function isAwaitingApproval(spans, verdict) {
 
 const EVENTS_HOST = "http://localhost:8000";
 
+// The trace contract types violations as an array, but a backend that ships it as a
+// JSON string would otherwise blank the whole drawer mid-demo. Normalise, don't crash.
+function violationList(span) {
+  const raw = span.attributes?.violations;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [raw];
+    } catch {
+      return [raw];
+    }
+  }
+  return [];
+}
+
 const VERDICT_CLASS = {
   approved: "verdict--approved",
   flagged: "verdict--flagged",
@@ -77,8 +93,8 @@ export default function AuditDrawer({ completedSpans, mode }) {
                         <span className="chain-name">{s.name}</span>
                       </div>
                       {s.attributes?.summary && <p className="chain-summary">{s.attributes.summary}</p>}
-                      {s.attributes?.violations?.length > 0 && (
-                        <p className="chain-violations">{s.attributes.violations.join(", ")}</p>
+                      {violationList(s).length > 0 && (
+                        <p className="chain-violations">{violationList(s).join(", ")}</p>
                       )}
                     </li>
                   ))}

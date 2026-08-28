@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="960" viewBox="0 0 1400 960" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5f6b7a"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a73e8"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d93025"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#188038"/>
+    </marker>
+  </defs>
+
+  <rect width="1400" height="960" fill="#ffffff"/>
+
+  <text x="48" y="52" font-size="27" font-weight="700" fill="#16202e">Expense Compliance Fleet — architecture</text>
+  <text x="48" y="79" font-size="15" fill="#5f6b7a">ADK 2.7.1 · gemini-3.5-flash · Gemini Enterprise Agent Platform · reasoning engine 586529530034782208</text>
+
+  <!-- ============ Agent Runtime boundary ============ -->
+  <rect x="48" y="108" width="820" height="512" rx="14" fill="#f6f9fe" stroke="#1a73e8" stroke-width="2"/>
+  <text x="70" y="136" font-size="14" font-weight="700" fill="#1a73e8" letter-spacing="0.6">AGENT RUNTIME (GEAP)  ·  deployed with Agent Identity (SPIFFE + mTLS)</text>
+
+  <!-- Submitter -->
+  <rect x="48" y="660" width="248" height="70" rx="10" fill="#ffffff" stroke="#c3ccd8" stroke-width="1.5"/>
+  <text x="172" y="691" font-size="15" font-weight="600" fill="#16202e" text-anchor="middle">Employee submits report</text>
+  <text x="172" y="712" font-size="12.5" fill="#5f6b7a" text-anchor="middle">free text + receipt OCR</text>
+
+  <!-- Orchestrator -->
+  <rect x="286" y="160" width="344" height="112" rx="10" fill="#ffffff" stroke="#1a73e8" stroke-width="2"/>
+  <text x="458" y="188" font-size="16" font-weight="700" fill="#16202e" text-anchor="middle">ORCHESTRATOR</text>
+  <text x="458" y="209" font-size="12.5" fill="#5f6b7a" text-anchor="middle">ADK SequentialAgent · never reorders the chain</text>
+  <text x="458" y="233" font-size="12.5" fill="#5f6b7a" text-anchor="middle">Agent Registry resolves sub-agents by name</text>
+  <text x="458" y="253" font-size="12.5" fill="#5f6b7a" text-anchor="middle">Memory Bank holds per-report state</text>
+
+  <!-- Screening agent -->
+  <rect x="78" y="336" width="352" height="150" rx="10" fill="#ffffff" stroke="#c3ccd8" stroke-width="1.5"/>
+  <text x="254" y="363" font-size="15" font-weight="700" fill="#16202e" text-anchor="middle">SCREENING AGENT</text>
+  <text x="254" y="383" font-size="12" fill="#8a95a3" text-anchor="middle">LlmAgent · gemini-3.5-flash</text>
+  <text x="98" y="410" font-size="12.5" fill="#3c4858">• Gemini extracts amount, category, date,</text>
+  <text x="108" y="428" font-size="12.5" fill="#3c4858">merchant, receipt?, pre-approval?</text>
+  <text x="98" y="450" font-size="12.5" fill="#3c4858">• check_expense_policy — thresholds in code,</text>
+  <text x="108" y="468" font-size="12.5" fill="#3c4858">not in a prompt. Emits violation codes</text>
+
+  <!-- Compliance agent -->
+  <rect x="486" y="336" width="352" height="150" rx="10" fill="#ffffff" stroke="#c3ccd8" stroke-width="1.5"/>
+  <text x="662" y="363" font-size="15" font-weight="700" fill="#16202e" text-anchor="middle">PII / COMPLIANCE AGENT</text>
+  <text x="662" y="383" font-size="12" fill="#8a95a3" text-anchor="middle">LlmAgent · gemini-3.5-flash</text>
+  <text x="506" y="410" font-size="12.5" fill="#3c4858">• scan_for_prompt_injection → Model Armor</text>
+  <text x="506" y="432" font-size="12.5" fill="#3c4858">• redact_pii → Cloud DLP deidentify_content</text>
+  <text x="506" y="454" font-size="12.5" fill="#3c4858">• final verdict: approved / flagged /</text>
+  <text x="516" y="472" font-size="12.5" fill="#3c4858">escalated / blocked</text>
+
+  <!-- Long running tool -->
+  <rect x="286" y="524" width="344" height="76" rx="10" fill="#fff8e6" stroke="#e8a33d" stroke-width="1.5"/>
+  <text x="458" y="549" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">LongRunningFunctionTool</text>
+  <text x="458" y="569" font-size="12.5" fill="#5f6b7a" text-anchor="middle">request_confirmation() parks the run in Memory Bank</text>
+  <text x="458" y="588" font-size="12.5" fill="#5f6b7a" text-anchor="middle">resumes days later on a manager FunctionResponse (7-day runs)</text>
+
+  <!-- Security SA hop -->
+  <rect x="900" y="336" width="300" height="150" rx="10" fill="#fdf3f2" stroke="#d93025" stroke-width="1.5"/>
+  <text x="1050" y="363" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">fleet-security SA</text>
+  <text x="1050" y="383" font-size="12" fill="#8a95a3" text-anchor="middle">impersonated, one hop</text>
+  <text x="918" y="411" font-size="12.5" fill="#3c4858">Agent Identity's bound tokens are</text>
+  <text x="918" y="429" font-size="12.5" fill="#3c4858">401'd by Model Armor's regional rep</text>
+  <text x="918" y="447" font-size="12.5" fill="#3c4858">endpoint. Blast radius stays small:</text>
+  <text x="918" y="465" font-size="12.5" fill="#3c4858">this SA holds only modelarmor.user</text>
+  <text x="918" y="480" font-size="12.5" fill="#3c4858">and dlp.user.</text>
+
+  <!-- Google Cloud security services -->
+  <rect x="900" y="160" width="140" height="76" rx="10" fill="#ffffff" stroke="#d93025" stroke-width="1.5"/>
+  <text x="970" y="192" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">Model Armor</text>
+  <text x="970" y="213" font-size="12" fill="#5f6b7a" text-anchor="middle">injection /</text>
+  <text x="970" y="228" font-size="12" fill="#5f6b7a" text-anchor="middle">jailbreak filter</text>
+
+  <rect x="1060" y="160" width="140" height="76" rx="10" fill="#ffffff" stroke="#188038" stroke-width="1.5"/>
+  <text x="1130" y="192" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">Cloud DLP</text>
+  <text x="1130" y="213" font-size="12" fill="#5f6b7a" text-anchor="middle">CARD / SSN /</text>
+  <text x="1130" y="228" font-size="12" fill="#5f6b7a" text-anchor="middle">EMAIL redaction</text>
+
+  <!-- Platform services column -->
+  <rect x="900" y="524" width="300" height="96" rx="10" fill="#ffffff" stroke="#c3ccd8" stroke-width="1.5"/>
+  <text x="1050" y="549" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">Agent Registry · Memory Bank</text>
+  <text x="918" y="573" font-size="12.5" fill="#3c4858">Engine auto-registered under its Agent</text>
+  <text x="918" y="591" font-size="12.5" fill="#3c4858">Identity principal, framework google-adk.</text>
+  <text x="918" y="609" font-size="12.5" fill="#3c4858">Memory Bank keeps parked runs alive.</text>
+
+  <!-- Telemetry -->
+  <rect x="286" y="672" width="344" height="92" rx="10" fill="#ffffff" stroke="#c3ccd8" stroke-width="1.5"/>
+  <text x="458" y="697" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">ADK OpenTelemetry spans</text>
+  <text x="458" y="717" font-size="12" fill="#8a95a3" text-anchor="middle">invoke_agent · call_llm · execute_tool · generate_content</text>
+  <text x="458" y="741" font-size="12.5" fill="#3c4858" text-anchor="middle">one SpanProcessor, two sinks — no second</text>
+  <text x="458" y="757" font-size="12.5" fill="#3c4858" text-anchor="middle">instrumentation path that can drift</text>
+
+  <rect x="700" y="672" width="200" height="92" rx="10" fill="#ffffff" stroke="#1a73e8" stroke-width="1.5"/>
+  <text x="800" y="706" font-size="14" font-weight="700" fill="#16202e" text-anchor="middle">Cloud Trace</text>
+  <text x="800" y="728" font-size="12.5" fill="#5f6b7a" text-anchor="middle">audit trail, via OTLP</text>
+  <text x="800" y="746" font-size="12.5" fill="#5f6b7a" text-anchor="middle">to telemetry.googleapis.com</text>
+
+  <rect x="960" y="672" width="240" height="92" rx="10" fill="#0e1613" stroke="#2f5d4a" stroke-width="1.5"/>
+  <text x="1080" y="702" font-size="14" font-weight="700" fill="#7fe0a8" text-anchor="middle">AGENT RADAR</text>
+  <text x="1080" y="723" font-size="12" fill="#8fae9f" text-anchor="middle">React + Vite · SSE /events</text>
+  <text x="1080" y="744" font-size="12" fill="#8fae9f" text-anchor="middle">nodes pulse on real span start</text>
+
+  <!-- ============ arrows ============ -->
+  <!-- submitter -> orchestrator -->
+  <path d="M 172 660 L 172 216 L 286 216" stroke="#5f6b7a" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- orchestrator -> screening / compliance -->
+  <path d="M 380 272 L 300 336" stroke="#1a73e8" stroke-width="1.8" fill="none" marker-end="url(#arrowBlue)"/>
+  <path d="M 536 272 L 616 336" stroke="#1a73e8" stroke-width="1.8" fill="none" marker-end="url(#arrowBlue)"/>
+  <text x="286" y="316" font-size="11.5" fill="#1a73e8">1. screen</text>
+  <text x="600" y="316" font-size="11.5" fill="#1a73e8">2. comply</text>
+
+  <!-- compliance -> SA -> armor/dlp -->
+  <path d="M 838 411 L 900 411" stroke="#d93025" stroke-width="1.8" fill="none" marker-end="url(#arrowRed)"/>
+  <path d="M 1000 336 L 980 236" stroke="#d93025" stroke-width="1.8" fill="none" marker-end="url(#arrowRed)"/>
+  <path d="M 1100 336 L 1120 236" stroke="#188038" stroke-width="1.8" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <!-- compliance -> long running -->
+  <path d="M 616 486 L 540 524" stroke="#e8a33d" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+  <text x="560" y="512" font-size="11.5" fill="#b57c19">escalated</text>
+
+  <!-- orchestrator <-> registry/memory -->
+  <path d="M 458 272 L 458 300 L 868 300 L 868 572 L 900 572" stroke="#5f6b7a" stroke-width="1.4" stroke-dasharray="5 4" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- everything -> telemetry -->
+  <path d="M 458 620 L 458 672" stroke="#5f6b7a" stroke-width="1.8" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 630 718 L 700 718" stroke="#1a73e8" stroke-width="1.8" fill="none" marker-end="url(#arrowBlue)"/>
+  <path d="M 900 718 L 960 718" stroke="#188038" stroke-width="1.8" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <!-- footer note -->
+  <text x="48" y="824" font-size="13" fill="#5f6b7a">The radar is not an animation loop. It renders the same OpenTelemetry spans ADK ships to Cloud Trace — if the radar draws it, the audit trail has it.</text>
+  <text x="48" y="848" font-size="13" fill="#5f6b7a">Policy thresholds are enforced in Python, never by the model, so no submission can argue a verdict into changing. Report text is data, never instruction.</text>
+  <text x="48" y="884" font-size="12.5" fill="#8a95a3">Verified on the deployed engine: PROMPT_INJECTION_BLOCKED (pi_and_jailbreak) · redaction_count 2 · run parked on request_manager_approval — python -m fleet.verify_deployed</text>
+</svg>

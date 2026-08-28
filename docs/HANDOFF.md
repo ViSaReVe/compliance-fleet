@@ -1,7 +1,8 @@
-# Handoff — state as of 2026-08-27 (evening)
+# Handoff — state as of 2026-08-28
 
-Second session closed out the deployed-security blockers. **Deadline: 2026-08-31,
-5:00 PM PT — treat 3 PM as the real cutoff.**
+Third session cut the radar over to the real fleet and made the deployed proof a
+single repeatable command. **Deadline: 2026-08-31, 5:00 PM PT — treat 3 PM as the
+real cutoff.**
 
 New session: read this, then `README.md` (*Current state*, *Engineering notes*).
 The GEAP surface is verified and written down; do not re-research it.
@@ -56,13 +57,42 @@ Local eval remains 13/13, now exercising the impersonated-SA path end to end
 
 ---
 
+## Closed this session
+
+- **Radar cutover done.** `python -m fleet.server` drives the radar end to end:
+  real Model Armor blocks (red intercept + banner), real DLP redaction counts in the
+  drawer, real park → Approve → resume. No frontend change was needed.
+- **`python -m fleet.verify_deployed`** — one command, three assertions against the
+  *deployed* engine, asserting on what Model Armor and Cloud DLP returned rather than
+  on what the agent wrote. Currently 3/3.
+- **`docs/architecture.png`** — the required Devpost architecture diagram. Source is
+  `docs/architecture.svg`; re-render with
+  `rsvg-convert -w 2100 -f png -o docs/architecture.png docs/architecture.svg`.
+- **README de-staled.** The old top block still said "not built yet: every Google
+  Cloud component", four days after it was built.
+
+Three cutover bugs found and fixed, all invisible to the local eval:
+
+1. `fleet.agent` was set *after* `start_as_current_span`, so every `span_start`
+   streamed as `orchestrator` — the screening and PII nodes never pulsed and no edge
+   ever animated. Attributes now go in at creation.
+2. `violations` shipped as `json.dumps(...)` while the trace contract types it as an
+   array; `violations.join is not a function` blanked the entire audit drawer through
+   React's error boundary, on the one report that *has* violations. Now a real
+   sequence, with the drawer normalising either shape.
+3. A radar disconnecting mid-SSE printed a full `ConnectionResetError` traceback,
+   which on a demo screen reads as the backend crashing. Swallowed in `Server.handle_error`.
+
 ## Remaining work, in order
 
-1. **Radar cutover** — stop `devtools/local_server.py`, start
-   `python -m fleet.server` (same port/paths), confirm radar renders real spans.
-2. **Demo script + 4-minute video.** Demo scenarios table in README is the outline.
-   Scenario 5 (escalation) can now be shown against the deployed engine, or via
-   `fleet/server.py`'s park/approve flow on the radar.
+1. **Demo script + ~4-minute video.** Demo scenarios table in README is the outline.
+   Show: radar in live mode, injection red intercept, DLP redaction in the drawer,
+   Approve resuming a parked report, then `verify_deployed` + Cloud Trace as the
+   "it really runs on Google Cloud" proof.
+2. **Hosted project URL** for the Devpost field. Cheapest credible option: `npm run
+   build` the radar and serve `frontend/dist` from Cloud Run or a GCS bucket. Live
+   mode needs the backend reachable too — decide whether the hosted copy ships in
+   Replay mode with a note, or the backend goes up alongside it.
 3. **README from a clean clone** — `bootstrap.sh` now also creates the
    `fleet-security` SA and grants; verify the doc path once on a fresh checkout.
 4. **Delete stale engines** (three ids above).
@@ -74,7 +104,7 @@ Explicitly deferred, with README honesty notes in place: per-agent identity spli
 
 ---
 
-## Traps paid for this session (also in README engineering notes)
+## Traps paid in earlier sessions (also in README engineering notes)
 
 - 401 vs 403: bound-token rejection reads like missing IAM; it is not.
 - Global Model Armor templates are unavailable on this project (permission denied
@@ -88,8 +118,24 @@ Explicitly deferred, with README honesty notes in place: per-agent identity spli
 - usc.edu org sessions force periodic `gcloud auth login` reauth; bootstrap detects
   the stale session poorly (it checks the account list, not token validity).
 
+## Traps paid this session (radar cutover)
+
+- Set span attributes at span *creation*, not after — `RadarSpanProcessor` flattens
+  `on_start` too, which is the whole point of the pulse.
+- OTel attributes hold sequences; `json.dumps`-ing a list breaks the trace contract
+  and crashes the drawer.
+- Cloud Trace ingestion lags by minutes, and `cloudtrace.v1 traces.list` lags further.
+  An empty trace list thirty seconds after a run is not proof the exporter is broken.
+- The deployed engine is queried on `:streamQuery` with
+  `{"class_method": "async_stream_query", "input": {"user_id", "message"}}`;
+  `agent_engines.get()` needs the **full** resource name or it 404s on an HTML page.
+- The pause is reported as `long_running_tool_ids` — call *ids*, not names. Resolve
+  them through the `function_call` parts in the same run or the proof reads as a
+  meaningless hex string.
+
 ## Cost
 
 Idle engines unbilled; active processing per vCPU-hour. `fleet/server.py`'s
-`review_loop` reviews a fixture every six seconds forever — fine for a demo window,
-do not leave it running unattended.
+`review_loop` reviews a fixture every six seconds forever, and every pass is a real
+Model Armor + Cloud DLP call — fine for a demo window, do not leave it running
+unattended. `verify_deployed` costs a handful of Gemini calls per run.

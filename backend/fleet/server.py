@@ -43,9 +43,10 @@ def resolve_pending(report_id, decision):
         return None
 
     tracer = telemetry.tracer()
-    with tracer.start_as_current_span("execute_tool") as span:
-        span.set_attribute("fleet.agent", "orchestrator")
-        span.set_attribute("fleet.report_id", report_id)
+    with tracer.start_as_current_span(
+        "execute_tool",
+        attributes={"fleet.agent": "orchestrator", "fleet.report_id": report_id},
+    ) as span:
         span.set_attribute("fleet.verdict", decision)
         span.set_attribute(
             "fleet.summary", f"Manager {decision} report {report_id} after escalation."
@@ -155,12 +156,27 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+class Server(ThreadingHTTPServer):
+    """A radar disconnecting mid-SSE is normal, not an incident. The default
+    handler prints a full ConnectionResetError traceback for it, which on a demo
+    screen reads as the backend crashing.
+    """
+
+    def handle_error(self, request, client_address):
+        import sys
+
+        exc = sys.exc_info()[0]
+        if exc in (ConnectionResetError, BrokenPipeError):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     telemetry.init()
     threading.Thread(target=review_loop, daemon=True).start()
     print(f"[server] project {config.PROJECT_ID} ({config.LOCATION})")
     print(f"[server] SSE on http://localhost:{PORT}/events")
-    ThreadingHTTPServer(("", PORT), Handler).serve_forever()
+    Server(("", PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":

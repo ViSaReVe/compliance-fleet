@@ -64,6 +64,10 @@ AGENT_PRINCIPAL_SET = os.environ.get("AGENT_PRINCIPAL_SET", "")
 # Set by fleet/deploy.py once the Memory Bank instance exists.
 AGENT_ENGINE_ID = os.environ.get("AGENT_ENGINE_ID", "")
 
+# The deployed fleet itself — a different engine from the Memory Bank above. Only
+# fleet/verify_deployed.py needs it; the local server never queries the deploy.
+DEPLOYED_ENGINE_ID = os.environ.get("FLEET_ENGINE_ID", "")
+
 # Service account impersonated for Model Armor / DLP calls. Agent Identity's bound
 # tokens are rejected (401) by regional rep endpoints like
 # modelarmor.us-central1.rep.googleapis.com even though they work against global

@@ -68,11 +68,18 @@ def extract(raw_submission, runner_output=None):
 def screen(report):
     """The screening.check_policy capability. Deterministic, no model involved."""
     span_tracer = telemetry.tracer()
-    with span_tracer.start_as_current_span("execute_tool") as span:
-        span.set_attribute("fleet.agent", "screening")
-        span.set_attribute("fleet.report_id", report.get("report_id") or "")
+    # agent/report_id must be set at span CREATION, not after: RadarSpanProcessor
+    # flattens on_start too, and a span that only gains fleet.agent afterwards is
+    # streamed to the radar as the orchestrator, so the screening node never pulses.
+    with span_tracer.start_as_current_span(
+        "execute_tool",
+        attributes={
+            "fleet.agent": "screening",
+            "fleet.report_id": report.get("report_id") or "",
+        },
+    ) as span:
         violations = policy.check_policy(report)
         summary = policy.summarize(report, violations)
-        span.set_attribute("fleet.violations", json.dumps(violations))
+        span.set_attribute("fleet.violations", list(violations))
         span.set_attribute("fleet.summary", summary)
     return violations, summary

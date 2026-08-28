@@ -13,17 +13,28 @@ rendered live as a reasoning-chain radar.
 Built on the **Gemini Enterprise Agent Platform** (GEAP): Agent Registry, Agent
 Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 
-> **Status: 4 days left.** Submission deadline **Aug 31, 2026, 5:00 PM PT**.
+> **Status: the fleet is deployed and verified on Google Cloud.** Submission
+> deadline **Aug 31, 2026, 5:00 PM PT**.
 >
-> **Running today:** the Agent Radar UI, and a local reference pipeline
-> (`backend/devtools/`) that computes real verdicts from `policies/rules.yaml` and
-> streams the locked trace contract over SSE. `python3 backend/devtools/run_eval.py`
-> passes 13/13.
+> **Running today:** the ADK fleet on Agent Runtime (reasoning engine
+> `586529530034782208`), the same fleet locally behind `python -m fleet.server`, and
+> the Agent Radar rendering its real OpenTelemetry spans over SSE.
 >
-> **Not built yet:** every Google Cloud component. No Gemini call, no ADK agent, no
-> Agent Registry / Agent Runtime / Memory Bank / Model Armor / Cloud DLP yet — see
-> [Current state](#current-state) for the exact seam. `backend/devtools/` is a
-> deliberate stand-in and gets deleted when `backend/fleet/` lands.
+> **Proof, in two commands** — neither of which trusts what the agent *says*:
+>
+> ```bash
+> python -m fleet.verify_deployed        # 3/3 against the deployed engine
+> python3 backend/devtools/run_eval.py   # 13/13 policy cases, no GCP, no cost
+> ```
+>
+> `verify_deployed` asserts on the values Model Armor and Cloud DLP actually
+> returned, because a deployed `LlmAgent` will write "Model Armor: Passed" having
+> called nothing. Latest run: `PROMPT_INJECTION_BLOCKED (pi_and_jailbreak)`,
+> `redaction_count: 2`, and a run parked on `request_manager_approval`.
+>
+> `backend/devtools/` stays as the zero-cost reference pipeline the eval set runs
+> against — the fleet's verdict logic mirrors it exactly, so a policy regression
+> shows up without spending a Gemini call.
 >
 > Every API, flag, and import below was verified against ADK 2.7.1 and current GEAP
 > docs, not assumed.
@@ -47,6 +58,11 @@ That is exactly the Fortified Enterprise Fleet brief, and it is what this repo b
 ---
 
 ## Architecture
+
+![Architecture](docs/architecture.png)
+
+<details>
+<summary>Same thing as text</summary>
 
 ```
                         Employee submits expense report
@@ -105,6 +121,8 @@ That is exactly the Fortified Enterprise Fleet brief, and it is what this repo b
               └──────────────────────────────────────────┘
 ```
 
+</details>
+
 **Design note.** The radar is not an animation loop with fake timings. It is a
 rendering of the same OpenTelemetry spans that ADK ships to Cloud Trace. One
 `SpanProcessor`, two sinks. If the radar shows it, Cloud Trace has it — which is
@@ -140,8 +158,8 @@ interface instead of being debugged against a moving frontend.
 
 | Piece | State | Where |
 | :--- | :--- | :--- |
-| Radar UI, sweep, drawer, SSE client | **Working** | `frontend/src/` |
-| Trace contract over SSE | **Working** | `backend/devtools/local_server.py` |
+| Radar UI, sweep, drawer, SSE client | **Working against the real fleet** | `frontend/src/` |
+| Trace contract over SSE | **Working** | `backend/fleet/server.py` (stand-in: `devtools/local_server.py`) |
 | Policy rule engine + verdicts | **Working** | `backend/devtools/rule_engine.py` |
 | 13-case eval set | **Passing 13/13** | `python3 backend/devtools/run_eval.py` |
 | Gemini field extraction | **Verified on Agent Runtime** | `backend/fleet/screening.py` |
@@ -149,7 +167,8 @@ interface instead of being debugged against a moving frontend.
 | Pause/resume for escalated reports | **Verified on Agent Runtime** | `backend/fleet/approval.py` — `LongRunningFunctionTool` parks on `adk_request_confirmation`, resumes from a `FunctionResponse` |
 | Agent Runtime deploy + Agent Identity | **Verified** | `backend/fleet/deploy.py`; engine auto-registered in Agent Registry with its Agent Identity principal |
 | Memory Bank | **Verified attached** | `backend/fleet/orchestrator.py` |
-| ADK-native OpenTelemetry spans | **Verified** (local pipeline) | `backend/fleet/telemetry.py` |
+| ADK-native OpenTelemetry spans | **Verified** — radar renders them live; same spans reach Cloud Trace | `backend/fleet/telemetry.py` |
+| Deployed-engine smoke test | **3/3** | `python -m fleet.verify_deployed` |
 | Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` — see honesty note below |
 
 Deployed fleet: reasoning engine `586529530034782208`, project
@@ -165,12 +184,14 @@ not individually registered as A2A services; the registry's verified role is tha
 deployed engine was auto-registered under its Agent Identity principal, framework
 detected as `google-adk`.
 
-**The integration seam.** `local_server.py` emits `agent` and `report_id` as
-top-level fields. Real ADK spans carry neither — `telemetry.py` must inject them as
-span attributes and flatten them into the same shape, so the frontend needs no change
-when the real fleet replaces the stand-in. Real ADK will also add `call_llm` and
-`generate_content` spans the local pipeline never produces; the radar already ignores
-span names it has no node for.
+**The integration seam, now closed.** `local_server.py` emits `agent` and `report_id`
+as top-level fields; real ADK spans carry neither, so `telemetry.py` injects them as
+span attributes and flattens them into the same shape. The cutover needed no frontend
+change: stop `devtools/local_server.py`, start `python -m fleet.server`, and the radar
+renders real Model Armor blocks, real DLP redaction counts, and a real park/approve
+round trip on the same port and paths. Real ADK also emits `call_llm` and
+`generate_content` spans the local pipeline never produced; the radar ignores span
+names it has no node for, as designed.
 
 ---
 
@@ -270,25 +291,30 @@ gcloud model-armor floorsettings update \
 
 ### 3. Backend
 
-**Today** — the local reference pipeline. No GCP, no cost, no dependencies:
-
-```bash
-python3 backend/devtools/run_eval.py     # 13/13 expected
-python3 backend/devtools/local_server.py # serves /events on :8000
-```
-
-**Once `backend/fleet/` lands** — the real fleet, same URL:
+The real fleet — Gemini extraction, Model Armor, Cloud DLP, real spans:
 
 ```bash
 cd backend
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # fill in PROJECT_ID, LOCATION, ARMOR_TEMPLATE
 python -m fleet.server
 ```
 
+`.env` is written by `scripts/bootstrap.sh` in step 1; nothing else to fill in.
 Backend serves the API on `http://localhost:8000` and the live span stream at
 `http://localhost:8000/events` (SSE).
+
+The zero-cost reference pipeline is still there, and is what the eval set runs
+against — no GCP, no cost, no dependencies:
+
+```bash
+python3 backend/devtools/run_eval.py     # 13/13 expected
+python3 backend/devtools/local_server.py # same /events contract on :8000
+```
+
+> `fleet/server.py`'s `review_loop` reviews a fixture every six seconds forever, and
+> every pass is a real Model Armor + Cloud DLP call. Fine for a demo window; don't
+> leave it running unattended.
 
 ### 4. Radar UI
 
@@ -304,8 +330,27 @@ Radar opens on `http://localhost:5173`.
 
 ```bash
 cd backend
-python -m fleet.deploy          # deploys all three agents with Agent Identity
-python -m fleet.register        # publishes agent cards to Agent Registry
+python -m fleet.deploy          # deploys the fleet with Agent Identity
+python -m fleet.verify_deployed # 3/3 — proves it really runs on Google Cloud
+```
+
+`deploy.py` prints the new engine id; put it in `backend/.env` as `FLEET_ENGINE_ID`
+so `verify_deployed` targets it by default. The engine is auto-registered in Agent
+Registry under its Agent Identity principal, so `fleet/register.py` (manual A2A
+agent-card publication) is optional — see the honesty notes.
+
+`verify_deployed` is the check that matters. `orchestrator.decide()` is deterministic
+and makes no model call, so the fleet passes every local test and can still 404 on the
+model or 401 on Model Armor the moment it is deployed. It asserts on what Model Armor
+and Cloud DLP returned, not on what the agent wrote:
+
+```
+PASS  injection   Model Armor blocks a prompt-injection description
+      PROMPT_INJECTION_BLOCKED (pi_and_jailbreak)
+PASS  redaction   Cloud DLP redacts card + email before persistence
+      redaction_count: 2
+PASS  escalation  run parks awaiting a human manager
+      parked on request_manager_approval
 ```
 
 ---
@@ -408,6 +453,22 @@ Things we got wrong first, corrected here so nobody re-learns them:
 - **Don't hand-roll instrumentation either.** ADK ≥ 1.17 emits OpenTelemetry spans with
   no configuration. Attach one extra `SpanProcessor` to fan them out to SSE and you get
   the radar and the Cloud Trace audit trail from the same source of truth.
+- **Set span attributes at creation, not after.** `RadarSpanProcessor` flattens
+  `on_start` as well as `on_end` — that is what makes a node pulse when work *begins*
+  rather than after it finished. A span that gains `fleet.agent` from a later
+  `set_attribute` call is streamed on start with whatever the contextvar default was,
+  so every node lit up as the orchestrator and no edge ever animated. Pass
+  `attributes={...}` to `start_as_current_span` instead.
+- **OTel attributes hold sequences, so don't `json.dumps` a list.** The trace contract
+  types `violations` as an array and the radar calls `.join()` on it; shipping it as a
+  JSON string threw `violations.join is not a function` and blanked the whole audit
+  drawer through React's error boundary — during a demo, on the one report that has
+  violations. `set_attribute("fleet.violations", list_of_str)` is valid OTel and Cloud
+  Trace renders it fine. The drawer now normalises either shape as belt-and-braces.
+- **Cloud Trace ingestion lags.** Spans exported over OTLP take minutes to appear, and
+  `cloudtrace.v1 traces.list` shows them later still. A trace explorer that looks empty
+  thirty seconds after a run is not proof the exporter is broken — check again before
+  re-debugging it.
 
 ---
 
@@ -433,11 +494,16 @@ thresholds, multiple violations on one report, borderline PII, near-miss injecti
 phrasing) each with an expected verdict, collected into `evals/eval_set.json`. Run once:
 
 ```bash
-adk eval backend/fleet evals/eval_set.json
+python3 backend/devtools/run_eval.py     # 13/13, no GCP, no cost
 ```
 
-This is a validation gate at the end of the pipeline, not a new subsystem — one sanity
-pass on Day 5/6 to catch a bad rule or prompt before it's on video, not ongoing CI.
+The runner drives `devtools/decision.py`, which `fleet/orchestrator.decide()` mirrors
+step for step — so a policy regression surfaces without spending a Gemini call. The
+deployed half is covered separately by `python -m fleet.verify_deployed`, which asserts
+on what Model Armor and Cloud DLP actually returned.
+
+This is a validation gate, not a new subsystem — one sanity pass before recording, not
+ongoing CI.
 
 ---
 
@@ -445,15 +511,15 @@ pass on Day 5/6 to catch a bad rule or prompt before it's on video, not ongoing 
 
 ```
 backend/
-  devtools/            # TEMPORARY local stand-in — deleted when fleet/ lands
-    local_server.py    #   serves the real /events contract, zero GCP cost
+  devtools/            # zero-cost reference pipeline; the eval set runs against it
+    local_server.py    #   serves the same /events contract, zero GCP cost
     decision.py        #   shared verdict logic (server + eval can't drift)
     rule_engine.py     #   policy matching
     rules_loader.py    #   rules.yaml parsing
     pii_scan.py        #   regex stand-in for Model Armor + Cloud DLP
     agent_gateway.py   #   allowlist stand-in for Agent Gateway/Identity
     run_eval.py        #   no-LLM eval runner
-  fleet/               # NOT BUILT YET — the real fleet
+  fleet/               # the real fleet — deployed on Agent Runtime
     orchestrator.py    #   SequentialAgent, Registry resolution, Memory Bank
     screening.py       #   Gemini extraction + policy rules
     compliance.py      #   Model Armor + Cloud DLP + verdict
@@ -461,7 +527,8 @@ backend/
     telemetry.py       #   SpanProcessor → SSE fan-out
     server.py          #   API + /events
     deploy.py          #   Agent Runtime deploy w/ Agent Identity
-    register.py        #   Agent Registry publication
+    register.py        #   Agent Registry publication (optional — auto-registered)
+    verify_deployed.py #   3 assertions against the DEPLOYED engine
   policies/rules.yaml
   fixtures/reports/    # 13 cases incl. the five demo reports
 frontend/
@@ -471,35 +538,31 @@ scripts/
 evals/
   eval_set.json        # expected verdict per fixture
 docs/
-  architecture.png
+  architecture.svg     # architecture diagram (source)
+  architecture.png     #   rendered, for the Devpost submission
+  HANDOFF.md           # session state, blockers, traps already paid for
 ```
 
 ---
 
-## Build plan
+## What is left
 
-Four working days plus deadline morning. Aug 31 is a submission day, not a build day.
+Aug 31 is a submission day, not a build day.
 
-The frontend and the orchestration contract are done. Everything remaining is Google
-Cloud, and it is all on one person — so the sequencing below front-loads the riskiest
-unknown (does a deployed Agent Runtime agent actually stream spans we can render?)
-into Day 1 rather than discovering it on Day 4.
-
-| Day | Vidya — fleet & security | Sohan — radar & integration |
-| :--- | :--- | :--- |
-| **Thu 27** | gcloud + credits + project bootstrap, all APIs, Model Armor template. `screening.py` with Gemini extraction + Memory Bank. **Deploy one agent to Agent Runtime end-to-end and confirm spans reach Cloud Trace.** | Radar resilience: reconnect on SSE drop, tolerate unknown span names, handle `call_llm`/`generate_content` arriving |
-| **Fri 28** | `compliance.py` (Model Armor + Cloud DLP), `orchestrator.py`, `telemetry.py` SpanProcessor → SSE | Cut frontend from `devtools/` to `fleet/`; verify contract parity; drawer shows LLM reasoning steps |
-| **Sat 29** | Agent Registry registration + Agent Identity deploy; replace the allowlist with real per-agent IAM denial | Model Armor red intercept on real spans; visual polish |
-| **Sun 30** | `request_confirmation()` pause/resume on Agent Runtime; eval pass; bug bash; verify this README from a clean clone | Demo rehearsal, video cuts, architecture diagram |
-| **Mon 31** | Record video by 10 AM PT. **Submit by 3 PM PT** — two hours of margin, not zero. | Final deploy, Devpost form, GCP proof screenshots |
+| When | Item |
+| :--- | :--- |
+| **Fri 29** | Demo script + record the ~4-minute video against the deployed engine |
+| **Fri 29** | Delete the three stale reasoning engines (`3279963582179049472`, `1114576586343972864`, `5958197985580941312`) so nobody queries the wrong one |
+| **Sat 30** | Verify this README from a clean clone: `bootstrap.sh` → `fleet.deploy` → `fleet.verify_deployed` |
+| **Sat 30** | Hosted radar URL for the Devpost "hosted project" field |
+| **Mon 31** | **Submit by 3 PM PT** — two hours of margin, not zero |
 
 **Explicitly out of scope.** The full Agent Gateway path (Terraform + Private Service
 Connect + IAP service extensions) is a multi-day build on its own. Agent Registry +
 Agent Identity + Model Armor floor settings deliver the same governance story for the
-track at a fraction of the cost. `backend/devtools/agent_gateway.py` stays until real
-per-agent IAM lands on Day 3, and is described as a stand-in wherever it appears.
-
----
+track at a fraction of the cost. Per-agent identity split — one engine and one identity
+today — is roadmap, and `backend/devtools/agent_gateway.py` remains the in-process
+stand-in for the deny-by-default boundary, described as such wherever it appears.
 
 ## Team
 

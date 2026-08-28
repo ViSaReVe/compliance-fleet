@@ -9,3 +9,4 @@ dist/
 .DS_Store
 *.log
 .agent_engine_config.json
+.claude/

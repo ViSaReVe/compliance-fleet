@@ -10,8 +10,6 @@ Two governance points live here rather than in the agents themselves:
                   its reasoning intact instead of starting over.
 """
 
-import json
-
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.memory import VertexAiMemoryBankService
 from google.adk.sessions import VertexAiSessionService
@@ -128,16 +126,22 @@ def decide(report):
 
     token_report = telemetry.current_report.set(report_id)
     try:
-        with tracer.start_as_current_span("invoke_agent") as root:
-            root.set_attribute("fleet.agent", "orchestrator")
-            root.set_attribute("fleet.report_id", report_id)
-
+        # Attributes go in at creation: the radar's SpanProcessor flattens on_start
+        # as well as on_end, and a span that gains fleet.agent later streams to the
+        # radar under the wrong agent, so the wrong node pulses.
+        with tracer.start_as_current_span(
+            "invoke_agent",
+            attributes={"fleet.agent": "orchestrator", "fleet.report_id": report_id},
+        ) as root:
             violations, summary = screening.screen(report)
 
-            with tracer.start_as_current_span("execute_tool") as span:
-                span.set_attribute("fleet.agent", "pii_compliance")
-                span.set_attribute("fleet.report_id", report_id)
-
+            with tracer.start_as_current_span(
+                "execute_tool",
+                attributes={
+                    "fleet.agent": "pii_compliance",
+                    "fleet.report_id": report_id,
+                },
+            ) as span:
                 description = report.get("description") or ""
                 blocked, armor_verdict = compliance.screen_for_injection(description)
 
@@ -175,7 +179,9 @@ def decide(report):
                     }
 
                 span.set_attribute("fleet.verdict", result["verdict"])
-                span.set_attribute("fleet.violations", json.dumps(result["violations"]))
+                # A sequence, not json.dumps: the locked trace contract types
+                # violations as an array, and the radar calls .join() on it.
+                span.set_attribute("fleet.violations", list(result["violations"]))
                 span.set_attribute("fleet.dlp_redactions", result["dlp_redactions"])
                 span.set_attribute("fleet.summary", result["summary"])
                 if result["armor_verdict"]:
