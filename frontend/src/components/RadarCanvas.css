@@ -67,12 +67,7 @@
   stroke: #34d399;
   stroke-width: 2;
   opacity: 0.5;
-  filter: drop-shadow(0 0 10px #34d399) drop-shadow(0 0 22px #34d39955);
-}
-
-.sweep-trail {
-  stroke: #34d399;
-  stroke-width: 2;
+  filter: drop-shadow(0 0 6px #34d399);
 }
 
 @keyframes spin {
