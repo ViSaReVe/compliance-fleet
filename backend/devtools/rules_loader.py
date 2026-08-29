@@ -27,14 +27,18 @@ def load_rules(path):
             else:
                 rules[key] = value.strip('"').strip("'")
 
-    # Recover the two YAML lists (allowed_categories, disallowed_categories) written
-    # as "key:\n  - item" block style, which the flat parser above skips.
+    # Recover block-style lists ("key:\n  - item"), which the flat parser above skips.
+    #
+    # This used to name the two keys it knew about. When rules.yaml later grew
+    # `escalating_violations`, this parser silently dropped it — fleet/policy.py read
+    # the new rule and devtools did not, and nothing failed, because a missing key is
+    # indistinguishable from an unset one. Two engines reading one config file must
+    # not disagree about what is in it, so the keys are discovered rather than listed.
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
-    for list_key in ("allowed_categories", "disallowed_categories"):
-        match = re.search(rf"{list_key}:\s*\n((?:\s*-\s*.+\n?)*)", text)
-        if match and match.group(1).strip():
-            items = re.findall(r"-\s*(.+)", match.group(1))
-            rules[list_key] = [i.strip() for i in items]
+    for match in re.finditer(r"^([A-Za-z_][A-Za-z0-9_]*):\s*\n((?:\s*-\s*.+\n?)+)", text, re.M):
+        key, body = match.group(1), match.group(2)
+        items = re.findall(r"-\s*(.+)", body)
+        rules[key] = [i.split("#", 1)[0].strip() for i in items if i.strip()]
 
     return rules

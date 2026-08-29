@@ -116,6 +116,9 @@ def review(report):
     tool_results = {}    # tool name -> [response, ...]
     parked = []
     redactions = 0
+    # What the agent actually handed the injection scanner, so the invariant can bind
+    # to the argument rather than to the mere fact of a call.
+    scanned_text_parts = []
 
     try:
         for event in stream_query(engine_id, prompt_for(report), user_id="radar"):
@@ -149,6 +152,9 @@ def review(report):
                             "fleet.summary": f"{agent} called {call.get('name')}",
                         },
                     )
+                    if call.get("name") == "scan_for_prompt_injection":
+                        args = call.get("args") or {}
+                        scanned_text_parts.append(str(args.get("text") or ""))
                     # Keyed by call id so a tool called twice in one run closes the
                     # right span; the runtime reuses names but not ids.
                     open_tools[call.get("id")] = span
@@ -188,8 +194,12 @@ def review(report):
         # step, the verdict they arrived at has nothing behind it — escalate to a
         # human rather than trusting a confident sentence. Evidence comes from the
         # runtime's function_response events, which the agent does not write.
-        evidence = invariants.Evidence.from_tool_results(tool_results, violations)
-        verdict, violations, broken = invariants.enforce(evidence, verdict, violations)
+        evidence = invariants.Evidence.from_tool_results(
+            tool_results, violations, "\n".join(scanned_text_parts)
+        )
+        verdict, violations, broken = invariants.enforce(
+            evidence, verdict, violations, report
+        )
 
         summary = _summarize(report, verdict, violations, armor_verdict, redactions)
         if broken:

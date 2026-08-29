@@ -12,6 +12,7 @@ is a matter of stopping one process and starting the other.
 import json
 import os
 import queue
+import urllib.parse
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -72,11 +73,25 @@ def park(report_id, result):
         _pending[report_id] = result
 
 
-def resolve_pending(report_id, decision):
+def resolve_pending(report_id, decision, approver=None, reason=None):
+    """Resolve a parked report, recording WHO decided and WHY.
+
+    An approval workflow whose audit trail cannot say who approved a $6,200 expense
+    is not an audit trail. Attribution is the entire point of the control — the
+    verdict is the least interesting part of the record.
+
+    `approver` here comes from the caller and is therefore a claim, not an
+    authenticated identity. Real deployment puts an IAP or OAuth identity in its
+    place; the field exists so that the recording path is right and only the
+    authentication is missing, rather than both.
+    """
     with _pending_lock:
         entry = _pending.pop(report_id, None)
     if entry is None:
         return None
+
+    approver = (approver or "").strip() or "unattributed"
+    reason = (reason or "").strip()
 
     tracer = telemetry.tracer()
     with tracer.start_as_current_span(
@@ -84,10 +99,26 @@ def resolve_pending(report_id, decision):
         attributes={"fleet.agent": "orchestrator", "fleet.report_id": report_id},
     ) as span:
         span.set_attribute("fleet.verdict", decision)
-        span.set_attribute(
-            "fleet.summary", f"Manager {decision} report {report_id} after escalation."
-        )
-    return {"report_id": report_id, "decision": decision}
+        span.set_attribute("fleet.approver", approver)
+        if reason:
+            span.set_attribute("fleet.approval_reason", reason)
+        detail = f" Reason: {reason}" if reason else ""
+        if approver == "unattributed":
+            # Say so in the trail rather than letting a blank read as signed-off.
+            span.set_attribute("fleet.status", "UNATTRIBUTED")
+            summary = (
+                f"Report {report_id} {decision} with no approver recorded — "
+                f"the decision stands but is not attributable.{detail}"
+            )
+        else:
+            summary = f"{approver} {decision} report {report_id}.{detail}"
+        span.set_attribute("fleet.summary", summary)
+    return {
+        "report_id": report_id,
+        "decision": decision,
+        "approver": approver,
+        "reason": reason,
+    }
 
 
 def review_loop(interval_seconds=None):
@@ -153,10 +184,17 @@ class Handler(BaseHTTPRequestHandler):
         """The devtools contract used GET for approve/deny; POST is the correct verb
         for a state change. Accept both so the radar works against either backend.
         """
+        path, _, query = self.path.partition("?")
+        params = urllib.parse.parse_qs(query)
         for prefix, decision in (("/approve/", "approved"), ("/deny/", "denied")):
-            if self.path.startswith(prefix):
-                report_id = self.path[len(prefix):]
-                resolved = resolve_pending(report_id, decision)
+            if path.startswith(prefix):
+                report_id = path[len(prefix):]
+                resolved = resolve_pending(
+                    report_id,
+                    decision,
+                    approver=(params.get("approver") or [None])[0],
+                    reason=(params.get("reason") or [None])[0],
+                )
                 if resolved:
                     self._json(200, {"ok": True, **resolved})
                 else:

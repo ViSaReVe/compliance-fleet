@@ -23,6 +23,7 @@ an escalating violation. This file is the regression gate on that.
 """
 
 import argparse
+import pathlib
 import sys
 
 from . import invariants, policy, records, tools
@@ -181,6 +182,42 @@ def run_invariants():
     return failures
 
 
+def run_parity():
+    """The devtools stand-in and the shipped fleet must agree on every fixture.
+
+    run_eval.py imports devtools/decision.py, not fleet/policy.py — so 13/13 has
+    always validated the stand-in rather than the deployed logic, with the two kept
+    in agreement by hand. They had already drifted once: rules.yaml grew
+    `escalating_violations` and the devtools parser silently dropped it.
+
+    This is the gate that makes the hand-agreement checkable. It cannot run inside
+    run_eval.py, which is deliberately dependency-free; it lives here, where PyYAML
+    and the fleet package are already available.
+    """
+    import json
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "devtools"))
+    from rule_engine import check_policy as devtools_check  # noqa: PLC0415
+    from rules_loader import load_rules as devtools_rules  # noqa: PLC0415
+
+    from . import config, policy  # noqa: PLC0415
+
+    rules = devtools_rules(str(config.POLICY_PATH))
+    failures = 0
+    for path in sorted(config.FIXTURES_DIR.glob("*.json")):
+        with open(path, "r", encoding="utf-8") as f:
+            report = json.load(f)
+        mine = sorted(policy.check_policy(report))
+        theirs = sorted(devtools_check(report, rules))
+        if mine != theirs:
+            failures += 1
+            print(f"FAIL  {report['report_id']}  fleet={mine}  devtools={theirs}")
+    total = len(list(config.FIXTURES_DIR.glob("*.json")))
+    print(f"{total - failures}/{total} fixtures agree between fleet/ and devtools/")
+    return failures
+
+
 def run_local():
     failures = 0
     for case in CASES:
@@ -242,6 +279,9 @@ def main():
     print("\n[eval_claims] cross-product — every report x every attack\n")
     failures += run_cross_product()
 
+    print("\n[eval_claims] parity — the stand-in must agree with the shipped fleet\n")
+    failures += run_parity()
+
     if args.deployed:
         from . import config
 
@@ -256,6 +296,7 @@ def main():
         len(CASES)
         + len(INVARIANT_CASES)
         + len(CROSS_REPORTS) * len(ATTACKS)
+        + 13  # parity: one per fixture
         + (len(DEPLOYED_PROMPTS) if args.deployed else 0)
     )
     print(f"\n{total - failures} passed, {failures} failed, {total} total")

@@ -198,9 +198,11 @@ def decide(report):
                     tools_called=frozenset(evidence_tools),
                     armor_blocked=blocked,
                     violations=tuple(result["violations"]),
+                    # screen_report walks every untrusted field, so all of it was seen.
+                    scanned_text=policy.untrusted_text(report),
                 )
                 enforced, enforced_violations, broken = invariants.enforce(
-                    evidence, result["verdict"], result["violations"]
+                    evidence, result["verdict"], result["violations"], report
                 )
                 if broken:
                     result["verdict"] = enforced

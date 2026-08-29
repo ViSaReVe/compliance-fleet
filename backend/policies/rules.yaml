@@ -19,6 +19,7 @@ escalating_violations:
   - OVER_LIMIT_NO_PREAPPROVAL
   - UNVERIFIED_RECEIPT_ATTACHED_CLAIM
   - UNVERIFIED_REQUESTED_PREAPPROVAL_CLAIM
+  - REPORT_ID_AMOUNT_MISMATCH
 
 # ASSUMPTION: no disallowed categories are defined anywhere yet. Left empty rather than
 # invented — Screening Agent should treat this list as optional until policy is set.

@@ -77,11 +77,11 @@ def check_expense_policy(
         "receipt_attached": bool(receipt_attached),
         "requested_preapproval": bool(requested_preapproval),
     }
-    truth = records.attested(report_id)
+    truth = records.attested(report_id, amount_usd)
 
     report = {"amount_usd": amount_usd, "category": category, **truth}
     violations = policy.check_policy(report)
-    violations.extend(records.contradictions(report_id, claims))
+    violations.extend(records.contradictions(report_id, claims, amount_usd))
 
     return {
         "violations": violations,

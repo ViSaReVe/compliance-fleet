@@ -53,9 +53,14 @@ class Evidence:
     tools_called: frozenset = frozenset()
     armor_blocked: bool = False
     violations: tuple = ()
+    # What was actually handed to the injection scanner. Presence of a call is not
+    # enough: an agent that scans the merchant name and skips the description
+    # satisfies "scan_for_prompt_injection was called" while scanning nothing that
+    # mattered. The invariant has to bind to the argument, not to the call.
+    scanned_text: str = ""
 
     @classmethod
-    def from_tool_results(cls, tool_results, violations=()):
+    def from_tool_results(cls, tool_results, violations=(), scanned_text=""):
         """Build from the runtime's function_response payloads.
 
         A tool appears here only if the runtime returned a response for it, which it
@@ -66,12 +71,47 @@ class Evidence:
             tools_called=frozenset(tool_results.keys()),
             armor_blocked=bool(armor.get("blocked")),
             violations=tuple(violations),
+            scanned_text=scanned_text or "",
         )
 
 
-def check(evidence, verdict):
+# A field is considered scanned if this much of it made it to the guardrail. Not 100%:
+# the agent may reasonably normalise whitespace or quote-wrap what it passes along.
+COVERAGE_THRESHOLD = 0.8
+
+
+def _covered(field_value, scanned_text):
+    """Whether `field_value` plausibly reached the scanner inside `scanned_text`."""
+    value = " ".join(str(field_value).split())
+    if not value:
+        return True
+    haystack = " ".join(scanned_text.split())
+    if value in haystack:
+        return True
+    # Fall back to token overlap, so a rewrapped or re-quoted copy still counts.
+    tokens = value.split()
+    if not tokens:
+        return True
+    hit = sum(1 for token in tokens if token in haystack)
+    return hit / len(tokens) >= COVERAGE_THRESHOLD
+
+
+def check(evidence, verdict, report=None):
     """Every invariant this run breaks, as violation codes. Empty means sound."""
     broken = []
+
+    # Did the injection scan actually see the untrusted text? A call with the wrong
+    # argument is not evidence of anything.
+    if report is not None and "scan_for_prompt_injection" in evidence.tools_called:
+        from . import policy
+
+        unscanned = [
+            field
+            for field in policy.UNTRUSTED_FIELDS
+            if report.get(field) and not _covered(report[field], evidence.scanned_text)
+        ]
+        if unscanned:
+            broken.append(f"INJECTION_SCAN_INCOMPLETE:{','.join(unscanned)}")
 
     for tool, verdicts_requiring_it in REQUIRED_EVIDENCE.items():
         if verdict in verdicts_requiring_it and tool not in evidence.tools_called:
@@ -91,14 +131,14 @@ def check(evidence, verdict):
     return broken
 
 
-def enforce(evidence, verdict, violations=()):
+def enforce(evidence, verdict, violations=(), report=None):
     """Apply the invariants, returning the verdict that is actually supportable.
 
     Fails to a human rather than open or shut. An unsound run is not evidence that
     the expense is fraudulent — it is evidence that the machine's opinion of it is
     worthless, and a person should look.
     """
-    broken = check(evidence, verdict)
+    broken = check(evidence, verdict, report)
     if not broken:
         return verdict, list(violations), []
     return "escalated", list(violations) + broken, broken
@@ -113,6 +153,16 @@ def describe(broken):
         for code in broken
         if code.startswith(MISSING_EVIDENCE_CODE + ":")
     ]
+    incomplete = [
+        code.split(":", 1)[1]
+        for code in broken
+        if code.startswith("INJECTION_SCAN_INCOMPLETE:")
+    ]
+    if incomplete:
+        return (
+            f"Escalated: the injection scan never saw {', '.join(incomplete)}, so a "
+            f"clean scan result proves nothing about it."
+        )
     if missing:
         return (
             f"Escalated: the run never called {', '.join(missing)}, so its verdict "

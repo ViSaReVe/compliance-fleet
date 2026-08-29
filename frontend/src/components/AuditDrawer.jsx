@@ -85,7 +85,14 @@ export default function AuditDrawer({ completedSpans, mode }) {
   }, [byReport]);
 
   function resolve(id, decision) {
-    fetch(`${EVENTS_HOST}/${decision}/${id}`).catch(() => {});
+    // Who and why, not just what. An approval trail without attribution is not a
+    // trail — see fleet/server.py resolve_pending. Prompt rather than silently
+    // sending an unattributed decision.
+    const approver = window.prompt(`Your name, to record on this ${decision}:`, "");
+    if (approver === null) return; // cancelled — do not resolve
+    const reason = window.prompt("Reason (optional):", "") || "";
+    const query = new URLSearchParams({ approver, reason }).toString();
+    fetch(`${EVENTS_HOST}/${decision}/${id}?${query}`, { method: "POST" }).catch(() => {});
   }
 
   return (
