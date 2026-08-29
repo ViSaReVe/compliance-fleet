@@ -17,7 +17,7 @@ Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 > deadline **Aug 31, 2026, 5:00 PM PT**.
 >
 > **Running today:** the ADK fleet on Agent Runtime (reasoning engine
-> `586529530034782208`), the same fleet locally behind `python -m fleet.server`, and
+> `4324482036380205056`), the same fleet locally behind `python -m fleet.server`, and
 > the Agent Radar rendering its real OpenTelemetry spans over SSE.
 >
 > **Proof, in two commands** — neither of which trusts what the agent *says*:
@@ -175,7 +175,7 @@ interface instead of being debugged against a moving frontend.
 | System of record for attestable facts | **Working**, deployed engine not yet redeployed | `backend/fleet/records.py` |
 | Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` — see honesty note below |
 
-Deployed fleet: reasoning engine `586529530034782208`, project
+Deployed fleet: reasoning engine `4324482036380205056`, project
 `nice-hangar-506120-t5` (org `usc.edu`), Memory Bank `6748861195161174016`.
 
 **Honesty notes.** The whole fleet deploys as one `SequentialAgent` engine with one

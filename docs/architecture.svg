@@ -17,7 +17,7 @@
   <rect width="1400" height="960" fill="#ffffff"/>
 
   <text x="48" y="52" font-size="27" font-weight="700" fill="#16202e">Expense Compliance Fleet — architecture</text>
-  <text x="48" y="79" font-size="15" fill="#5f6b7a">ADK 2.7.1 · gemini-3.5-flash · Gemini Enterprise Agent Platform · reasoning engine 586529530034782208</text>
+  <text x="48" y="79" font-size="15" fill="#5f6b7a">ADK 2.7.1 · gemini-3.5-flash · Gemini Enterprise Agent Platform · reasoning engine 4324482036380205056</text>
 
   <!-- ============ Agent Runtime boundary ============ -->
   <rect x="48" y="108" width="820" height="512" rx="14" fill="#f6f9fe" stroke="#1a73e8" stroke-width="2"/>

@@ -151,6 +151,25 @@ requiring it, which is the worst possible failure mode for a security check.
 
 ---
 
+## Closed since this review
+
+Everything below was fixed in `c898a53`, with the reproductions above kept as the
+record of what the bug actually was.
+
+| Finding | Now |
+| :--- | :--- |
+| Report-id spoofing | `records.identifies()` — the id must come with a matching amount, or every attestable field fails closed and `REPORT_ID_AMOUNT_MISMATCH` escalates |
+| Invariants checked presence, not arguments | `Evidence.scanned_text` + `INJECTION_SCAN_INCOMPLETE`, naming the fields the scan never saw |
+| `rules_loader` silently dropped keys | block lists are discovered, not listed |
+| Eval tested the stand-in, not the shipped code | parity gate in `eval_claims`: 13/13 fixtures agree between `fleet/` and `devtools/` |
+| Approve/Deny had no attribution | `approver` + `reason` on the span; an unattributed decision is marked `UNATTRIBUTED` rather than reading as signed-off |
+
+Still open, and named in [EVALUATION.md](EVALUATION.md): the receipt total is not
+reconciled, `approver` is unauthenticated, per-agent IAM is one identity, and the
+multi-agent justification is a privilege split rather than a capability one.
+
+---
+
 ## What this adds up to
 
 Ranked by *what would actually hurt*, not by effort:

@@ -1,7 +1,7 @@
-# Handoff — state as of 2026-08-28
+# Handoff — state as of 2026-08-29
 
-Third session cut the radar over to the real fleet and made the deployed proof a
-single repeatable command. **Deadline: 2026-08-31, 5:00 PM PT — treat 3 PM as the
+The radar now renders the deployed agents, the trace is an enforcement point, and
+four reproduced vulnerabilities are closed and redeployed. **Deadline: 2026-08-31, 5:00 PM PT — treat 3 PM as the
 real cutoff.**
 
 New session: read this, then `README.md` (*Current state*, *Engineering notes*).
@@ -20,19 +20,26 @@ The GEAP surface is verified and written down; do not re-research it.
 | Google account | `vvenna@usc.edu` — credits live here, not the personal gmail |
 | Billing | `01F4BE-456C5D-7D4754`, budget `hackathon-guard` at $100 |
 | Memory Bank | agent engine `6748861195161174016` |
-| **Deployed fleet** | **reasoning engine `586529530034782208`** |
+| **Deployed fleet** | **reasoning engine `4324482036380205056`** |
 | Security SA | `fleet-security@nice-hangar-506120-t5.iam.gserviceaccount.com` |
 | Model | `gemini-3.5-flash`, served from **`global`**, not `us-central1` |
 
-Stale engines `3279963582179049472`, `1114576586343972864`, `5958197985580941312`
-are earlier deploys of the same fleet — idle engines are unbilled, but delete them
-before demo day so nobody queries the wrong one.
+Superseded engines, all earlier deploys of the same fleet. Idle engines are unbilled,
+but delete them before demo day so nobody queries the wrong one — and note that two of
+them are *useful* until then:
+
+| Engine | Why it exists |
+| :--- | :--- |
+| `586529530034782208` | the engine the claim vulnerability was found on. `eval_claims --deployed` still fails against it, correctly. Keep until the video is cut — it is the before half of before/after. |
+| `138949132692750336` | failed `verify_deployed` because its instruction said to scan fields *joined*. Delete. |
+| `3279963582179049472`, `1114576586343972864`, `5958197985580941312` | older still. Delete. |
 
 ---
 
 ## What is now VERIFIED on the deployed engine
 
-All three run against engine `586529530034782208`, queried via `async_stream_query`:
+All run against engine `4324482036380205056`, queried via `async_stream_query`.
+Reproduce with `python -m fleet.verify_deployed -k 3`:
 
 - **Model Armor works deployed.** Injection text returns
   `PROMPT_INJECTION_BLOCKED (pi_and_jailbreak)`. The 401 from the first session is
@@ -97,20 +104,38 @@ things in there that were not obvious from the summary page:
 - **The project must stay testable until Oct 1**, not Aug 31 — judging runs a month.
   Idle engines are free; the six-second review loop is not.
 
+## Current state, verified today
+
+```
+run_eval.py                      13/13   no GCP, no cost
+eval_claims                      48/48   claims, invariants, cross-product, parity
+eval_claims --deployed           50/50   the attack, through the real agents
+verify_deployed -k 2              3/3    pass^2 on the deployed engine
+```
+
+Both server modes work and emit the same span contract:
+
+```
+python -m fleet.server                       deterministic — real Armor + DLP, no LLM
+FLEET_LIVE_AGENT=1 python -m fleet.server    the deployed agents, 9 spans a report
+```
+
 ## Remaining work, in order
 
-1. **Record the ~4-minute video.** Script is written: `docs/DEMO.md` — beat-by-beat
-   shot list, narration timed to 3:38 against the 3:55 cut, pre-flight checklist and
-   mid-take failure table. Beat 3's timing is measured, not assumed: the SSE
-   reconnect costs `EXP-2026-0001`, so narrate four scenarios, not five.
-2. **Hosted project URL** for the Devpost field. Cheapest credible option: `npm run
-   build` the radar and serve `frontend/dist` from Cloud Run or a GCS bucket. Live
-   mode needs the backend reachable too — decide whether the hosted copy ships in
-   Replay mode with a note, or the backend goes up alongside it.
-3. **README from a clean clone** — `bootstrap.sh` now also creates the
-   `fleet-security` SA and grants; verify the doc path once on a fresh checkout.
-4. **Delete stale engines** (three ids above).
-5. **Submit by 3 PM PT Aug 31.**
+1. **Record the ~4-minute video.** `docs/DEMO.md` is re-timed for live-agent mode:
+   two reports, one unbroken take, 534 words of narration ≈ 3:41. The rules score
+   "unedited, live execution", so a bad take is reshot whole, never repaired.
+2. **Delete the superseded engines** — but keep `586529530034782208` until the video
+   is cut, since it is the *before* in before/after.
+3. **Hosted project URL** for the Devpost field. `npm run build` plus a static host is
+   the cheap path; `VITE_BACKEND_URL` already makes the backend configurable.
+4. **Share the private repo** with `testing@devpost.com` and `cloudhackathons@google.com`,
+   then check the link in an incognito window.
+5. **Bonus points** — a public write-up and a `#AllThingsAgenticHackathon` post is 0.4
+   on a 5-point base for under two hours. `docs/EVALUATION.md` is most of the post.
+6. **Submit by 3 PM PT Aug 31**, then stop touching the repo until winners are
+   announced. Judging runs to **Oct 1** and the project must stay testable that whole
+   time — idle engines are free, the review loops are not.
 
 Explicitly deferred, with README honesty notes in place: per-agent identity split
 (one engine/one identity today), manual `register.py` A2A registration
@@ -146,6 +171,26 @@ Explicitly deferred, with README honesty notes in place: per-agent identity spli
 - The pause is reported as `long_running_tool_ids` — call *ids*, not names. Resolve
   them through the `function_call` parts in the same run or the proof reads as a
   meaningless hex string.
+
+## Traps paid this session (security hardening)
+
+- **Widening a guardrail's input can weaken it.** Scanning `description +
+  receipt_ocr_text` joined made an injection that was blocked when scanned alone come
+  back *clean* — extra benign context dilutes the classifier below its confidence
+  threshold. Scan per field. This bit twice: once in the code, then again in the
+  agent's *instruction*, where it took a failed `verify_deployed` to catch.
+- **Model Armor's SDP filter nests `match_state` under `inspect_result`.** Every other
+  filter carries it directly. Reading it directly returns None, the overall
+  `filter_match_state` still says MATCH_FOUND, and a credit card number gets reported
+  as a prompt injection.
+- **An attested lookup is only as good as its key.** `records.attested(report_id)`
+  trusted a submitter-supplied id, so quoting another report's id inherited its
+  receipt. Bind the id to something the record can confirm.
+- **A green eval over a stand-in converts unknown into believed-safe.** `run_eval.py`
+  tests `devtools/`, not `fleet/`. There is now a parity gate; there was not, and the
+  two had already drifted.
+- **Instructions are not controls.** The screening agent's prompt said "do not infer a
+  receipt exists". It inferred one, three runs out of three.
 
 ## Cost
 

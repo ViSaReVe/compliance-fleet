@@ -104,68 +104,75 @@ box outward. Do not read the diagram aloud — point at three things.
 
 ### Beat 3 — the fleet acting (0:47 – 2:12)
 
-**The timing trick.** `review_loop` walks the fixtures in sorted order, six seconds
-apart — and `0002` through `0005` are the four interesting demo scenarios *in
-narrative order*. One continuous 18-second take covers flagged → redacted → blocked
-→ escalated, with no clicking and no waiting.
+**Which mode to record.** The server has two, and this matters more than anything
+else in the shot list:
+
+| | `python -m fleet.server` | `FLEET_LIVE_AGENT=1 python -m fleet.server` |
+| :--- | :--- | :--- |
+| What runs | real Model Armor + Cloud DLP, verdict in Python | the **deployed agents** — real Gemini turns, real delegation |
+| Spans per report | 3 | 9 |
+| Pace | one every 6s | one every ~25s |
+| Answers *"does the system delegate to specialized sub-agents"* | no | **yes** |
+
+**Record in live-agent mode.** The judging criterion asks about delegation by name,
+and the deterministic path — however real its Model Armor calls — has no agent in it
+to show. Nine spans a report is also simply better television: you watch `screening`
+think, call the policy tool, hand off; then `pii_compliance` think, call Model Armor,
+think, call Cloud DLP, think, and park.
+
+**Two reports, not four.** At ~25s each, four scenarios unbroken is over 100 seconds
+and blows the budget. Take the two that carry the whole story:
+
+- **`EXP-2026-0004`** — the injection. Model Armor intercepts, red on the radar.
+- **`EXP-2026-0005`** — the escalation. Parks on `request_manager_approval`, and you
+  approve it on camera **with your name and a reason**, which is the compliance point.
+
+Set `LIVE_AGENT_REPORTS` in `fleet/server.py` to just those two before the take, so
+the loop alternates between them and nothing else appears.
 
 **Setup, in this order:**
 
 1. Radar already open, click **Live (/events)**. It will read `connecting…` — fine.
 2. Start recording.
-3. In the terminal: `python -m fleet.server`.
-4. The browser's EventSource reconnects on its own, and the audit trail fills.
-
-**Measured, not assumed:** the reconnect costs you roughly one cycle slot, so
-`EXP-2026-0001` — the boring $42 clean-path report — does not make it into the trail.
-`0002` onward always does. This is fine: flagged / redacted / blocked / escalated is
-a stronger reel than opening on "nothing happened", and the clean path is visible
-anyway in the approved rows further down the trail. Narrate four scenarios, not five.
-
-Do **not** plan to catch `0001` on a later pass. A full cycle is 78 seconds, but
-`0005` parks on the first pass and is skipped on every pass after — so pass two gives
-you the opener and loses the escalation. Take the first pass.
-
-> Optional, if you want all five in one take: give `review_loop` a couple of seconds
-> of head start before its first review, so an already-open radar is attached when
-> `0001` runs. Two lines in `fleet/server.py`. Not required for the script below.
+3. In the terminal: `FLEET_LIVE_AGENT=1 python -m fleet.server`.
+4. The browser's EventSource reconnects on its own and the chain starts filling.
 
 **One take, no cuts.** The rules score "an unedited, live execution of the agent
-performing its task". Beat 3 runs from the terminal command to the manager approval
-in a single unbroken recording — roughly 80 seconds. If a take goes wrong, throw the
-whole take away and start it again; do not repair it in the edit. Keep the terminal
-visible in a corner of the frame so the run is self-evidently live.
+performing its task". Beat 3 runs from the terminal command to the approval in a
+single unbroken recording. If a take goes wrong, throw the whole take away and start
+again; do not repair it in the edit. Keep the terminal visible in a corner of the
+frame so the run is self-evidently live.
 
-**The park is on a timer too.** `0005` escalates at about 24 seconds after server
-start. Don't click **Approve** the instant it appears — let the ESCALATED row and the
-`Awaiting manager…` line sit on screen for two seconds first. That pause *is* the
-point of the feature.
+**Open the drawer on `EXP-2026-0004`** while the second report runs — the reasoning
+chain is the shot, and it is legible for the whole 25 seconds.
 
 > This is Agent Radar. Not an animation — every pulse is a real OpenTelemetry span,
 > from the same SpanProcessor that ships to Cloud Trace. If the radar draws it,
 > Cloud Trace has it.
 >
-> Eight-forty hotel, no receipt — flagged, over the five hundred dollar
-> receipt-free cap. That violation code came from the rule engine, not the model.
+> Screening is thinking — that is a real Gemini turn. It calls the policy tool.
+> Note it does not decide anything: thresholds live in code, so the model extracts
+> and the code decides. Then it hands off.
 >
-> Sixty-five dollar taxi — and the receipt OCR contains a card number. Cloud DLP
-> redacted it before anything was persisted.
->
-> And the injection. Model Armor intercepts at the boundary: prompt-injection
-> blocked, `pi_and_jailbreak`. Red on the radar, blocked in the trail. The agent
-> never acted on it.
+> Compliance takes over. Model Armor, per field — because scanning the fields
+> joined together dilutes the classifier and lets an injection through, which we
+> measured. And there it is: prompt-injection blocked, `pi_and_jailbreak`. Red on
+> the radar. The agent never acted on the instruction.
 
-**Then open the drawer** on `EXP-2026-0004` so the reasoning chain and the
-`armor_verdict` are legible on screen for two full seconds.
+The drawer is already open on `EXP-2026-0004`. Let the chain sit on screen — every
+line of it is a real agent turn or a real tool result.
 
 > Last one — six thousand two hundred dollars, no pre-approval. This escalates, and
 > ADK's LongRunningFunctionTool parks the run in Memory Bank. It stays parked.
 > Agent Runtime supports seven-day runs, so "the manager is on PTO" is a supported
 > state, not a timeout.
 
-**Click Approve** on the parked `EXP-2026-0005`.
+**Click Approve** on the parked `EXP-2026-0005`. It prompts for your name and a
+reason — **type them on camera.** That prompt is the beat.
 
-> Here's the manager approving. The run resumes and closes out.
+> Here is the manager approving — and the system records who, and why. An approval
+> trail that cannot say who approved six thousand dollars is not a trail. The run
+> resumes and closes out.
 
 ---
 
@@ -185,7 +192,7 @@ PASS lines land on screen.
 > agent will happily write "Model Armor: passed" having called nothing. Three of
 > three.
 
-**Shot B — Cloud Console**, reasoning engine `586529530034782208`.
+**Shot B — Cloud Console**, reasoning engine `4324482036380205056`.
 
 > Here's the engine in the Cloud Console — deployed with Agent Identity,
 > auto-registered in Agent Registry, framework detected as `google-adk`. That's
