@@ -587,6 +587,7 @@ scripts/
 evals/
   eval_set.json        # expected verdict per fixture
 docs/
+  REVIEW.md            # the system read by five different reviewers, with repros
   SUBMISSION.md        # checklist against the official rules + scoring analysis
   DEMO.md              # 4-minute video shot list, narration, timings
   EVALUATION.md        # the claim-boundary finding, the fix, what's still weak
