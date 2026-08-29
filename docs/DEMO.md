@@ -59,6 +59,58 @@ Then:
 
 ---
 
+## Recording setup
+
+Nothing to install. macOS has what you need.
+
+**Press ⌘⇧5.** That is the built-in screen recorder — same engine as QuickTime, fewer
+clicks. Before you hit Record:
+
+1. **Options → Microphone → your mic.** It defaults to **None**. Recording four
+   silent minutes and discovering it afterwards is the single most common way this
+   goes wrong.
+2. **Options → Show Mouse Clicks.** Judges follow where you click.
+3. **Options → Save to → Desktop**, and set the 5-second timer off.
+
+If macOS blocks it: System Settings → Privacy & Security → Screen & System Audio
+Recording.
+
+### This machine specifically
+
+The display is **2560 × 1664 Retina**, so a full-screen capture is 2560 wide and
+YouTube will serve it around 1440p. That is fine — but text shrinks when the viewer
+watches at 720p on a laptop, so before recording:
+
+- **Terminal font to ~18–20pt.** The `verify_deployed` output in beat 4 has to be
+  readable or the beat does nothing.
+- **Browser zoom to 110–125%** so the audit-trail chain is legible.
+- Hide the dock (⌥⌘D), turn on Do Not Disturb, close every other tab.
+
+### Record it as one continuous take
+
+There is no video editor installed here — no iMovie, no OBS, no ffmpeg — and you do
+not need one. **Record all six beats straight through in a single pass.**
+
+That is not a workaround, it is the better answer. The rules score *"an unedited, live
+execution of the agent performing its task"*, and a 4-minute unbroken take is the
+strongest possible evidence of that. It also removes the whole class of problem where
+a visible cut inside beat 3 costs you the criterion.
+
+Practically: rehearse twice without recording, then take it in one go. If you fluff a
+line, keep going — a small stumble reads as live, and live is what is being scored. If
+a take genuinely fails, delete it and start over rather than reaching for an editor.
+
+If you do end up needing to join clips, iMovie is a free App Store download and
+QuickTime's ⌘T only trims ends — it cannot join.
+
+### Audio
+
+Built-in mic in a quiet room is fine. Sit close, avoid a reverberant space, and do one
+20-second test recording to check levels before committing to a full pass. Wired
+earbuds with a mic beat AirPods for this; Bluetooth compresses voice hard.
+
+---
+
 ## The shot list
 
 Narration below is **526 words ≈ 3:38** at a normal 145 words per minute, counted per
@@ -275,7 +327,10 @@ Hard cut. No outro card, no music sting, no thanks-for-watching.
 - [ ] `verify_deployed` 3/3, `run_eval` 13/13
 - [ ] Three stale engines deleted
 - [ ] Cloud Trace shows recent spans **before** recording starts
-- [ ] Notifications off, dock hidden, 1920×1080
+- [ ] ⌘⇧5 → Options → **Microphone set** (defaults to None)
+- [ ] Terminal font ~18–20pt, browser zoom 110–125%
+- [ ] Notifications off (Do Not Disturb), dock hidden (⌥⌘D), other tabs closed
+- [ ] One 20-second test recording — check the audio actually recorded
 - [ ] Final cut under 3:55
 - [ ] Uploaded **public** to YouTube or Vimeo, captions on
 - [ ] Devpost: track = The Fortified Enterprise Fleet; repo URL; architecture
