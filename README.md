@@ -170,6 +170,7 @@ interface instead of being debugged against a moving frontend.
 | ADK-native OpenTelemetry spans | **Verified** — radar renders them live; same spans reach Cloud Trace | `backend/fleet/telemetry.py` |
 | Deployed-engine smoke test | **3/3** | `python -m fleet.verify_deployed` |
 | Adversarial claim eval | **5/5 local** | `python -m fleet.eval_claims` — see [docs/EVALUATION.md](docs/EVALUATION.md) |
+| Radar renders the **deployed agents** | **Working** | `FLEET_LIVE_AGENT=1 python -m fleet.server` — `backend/fleet/live_agent.py` |
 | System of record for attestable facts | **Working**, deployed engine not yet redeployed | `backend/fleet/records.py` |
 | Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` — see honesty note below |
 
@@ -311,6 +312,23 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 python -m fleet.server
 ```
+
+That runs the **deterministic** path: real Model Armor and real Cloud DLP calls, but
+the verdict is computed in Python and no model runs. To drive the **deployed agents**
+instead — real Gemini turns, real tool calls, real delegation on the radar:
+
+```bash
+FLEET_LIVE_AGENT=1 python -m fleet.server
+```
+
+Same port, same paths, same span contract. The radar then shows the actual reasoning
+chain — `screening` thinking, calling `check_expense_policy`, handing off to
+`pii_compliance`, which calls Model Armor then Cloud DLP then parks on a manager
+approval. Nine spans a report instead of three, because there is genuinely more
+happening.
+
+> Live-agent mode costs several Gemini calls per report and loops every 25 seconds
+> over the five demo fixtures. It is opt-in for that reason. Stop it when you're done.
 
 `.env` is written by `scripts/bootstrap.sh` in step 1; nothing else to fill in.
 Backend serves the API on `http://localhost:8000` and the live span stream at
@@ -548,6 +566,7 @@ backend/
     deploy.py          #   Agent Runtime deploy w/ Agent Identity
     register.py        #   Agent Registry publication (optional — auto-registered)
     records.py         #   system of record for attestable facts
+    live_agent.py      #   drives the DEPLOYED agents, maps their events to spans
     verify_deployed.py #   3 assertions against the DEPLOYED engine
     eval_claims.py     #   adversarial eval: contradicted claims must escalate
   policies/rules.yaml

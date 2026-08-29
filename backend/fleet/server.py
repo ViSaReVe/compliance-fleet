@@ -10,6 +10,7 @@ is a matter of stopping one process and starting the other.
 """
 
 import json
+import os
 import queue
 import threading
 import time
@@ -18,6 +19,29 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import config, orchestrator, telemetry
 
 PORT = 8000
+
+# Two ways to drive the radar, same span contract out of both:
+#
+#   deterministic (default)  orchestrator.decide() — real Model Armor and Cloud DLP,
+#                            no model, milliseconds per report, free apart from the
+#                            two security calls.
+#   live agent               live_agent.review() — the DEPLOYED agents, real Gemini
+#                            turns and real tool calls, so the radar renders actual
+#                            delegation. Several Gemini calls per report.
+#
+# FLEET_LIVE_AGENT=1 picks the second. It is opt-in because it costs money on a loop.
+LIVE_AGENT = os.environ.get("FLEET_LIVE_AGENT", "").lower() in ("1", "true", "yes")
+
+# The live path is far slower and costs per report, so it walks only the five demo
+# fixtures and waits longer between them. The deterministic path can afford the lot.
+LIVE_AGENT_INTERVAL_SECONDS = 25
+LIVE_AGENT_REPORTS = (
+    "EXP-2026-0001",
+    "EXP-2026-0002",
+    "EXP-2026-0003",
+    "EXP-2026-0004",
+    "EXP-2026-0005",
+)
 
 _pending = {}
 _pending_lock = threading.Lock()
@@ -28,7 +52,19 @@ def load_fixtures():
     for path in sorted(config.FIXTURES_DIR.glob("*.json")):
         with open(path, "r", encoding="utf-8") as f:
             reports.append(json.load(f))
+    if LIVE_AGENT:
+        by_id = {r["report_id"]: r for r in reports}
+        return [by_id[rid] for rid in LIVE_AGENT_REPORTS if rid in by_id]
     return reports
+
+
+def reviewer():
+    """The function that actually reviews a report, per the configured mode."""
+    if LIVE_AGENT:
+        from . import live_agent
+
+        return live_agent.review
+    return orchestrator.decide
 
 
 def park(report_id, result):
@@ -54,7 +90,7 @@ def resolve_pending(report_id, decision):
     return {"report_id": report_id, "decision": decision}
 
 
-def review_loop(interval_seconds=6):
+def review_loop(interval_seconds=None):
     """Walk the fixtures on a loop so the radar always has traffic during a demo.
     Escalated reports are parked rather than re-reviewed, so an approval is a real
     resume rather than a fresh run over the same report.
@@ -63,6 +99,9 @@ def review_loop(interval_seconds=6):
     if not reports:
         print("[server] no fixtures found; /events will stay idle")
         return
+    if interval_seconds is None:
+        interval_seconds = LIVE_AGENT_INTERVAL_SECONDS if LIVE_AGENT else 6
+    review = reviewer()
     index = 0
     while True:
         report = reports[index % len(reports)]
@@ -71,7 +110,7 @@ def review_loop(interval_seconds=6):
             already_parked = report["report_id"] in _pending
         if not already_parked:
             try:
-                result = orchestrator.decide(report)
+                result = review(report)
                 if result["verdict"] == "escalated":
                     park(report["report_id"], result)
             except Exception as exc:  # noqa: BLE001
@@ -175,6 +214,14 @@ def main():
     telemetry.init()
     threading.Thread(target=review_loop, daemon=True).start()
     print(f"[server] project {config.PROJECT_ID} ({config.LOCATION})")
+    if LIVE_AGENT:
+        print(
+            f"[server] LIVE AGENT mode — driving deployed engine "
+            f"{config.DEPLOYED_ENGINE_ID}, {LIVE_AGENT_INTERVAL_SECONDS}s between "
+            f"reports. This costs Gemini calls on a loop; stop it when you are done."
+        )
+    else:
+        print("[server] deterministic mode (set FLEET_LIVE_AGENT=1 for the real agents)")
     print(f"[server] SSE on http://localhost:{PORT}/events")
     Server(("", PORT), Handler).serve_forever()
 
