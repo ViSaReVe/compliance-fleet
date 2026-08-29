@@ -52,6 +52,11 @@
   color: #34d399;
 }
 
+.radar-column {
+  display: flex;
+  flex-direction: column;
+}
+
 .app-main {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

@@ -3,6 +3,8 @@
   width: 100%;
   max-width: 620px;
   margin: 0 auto;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 54%, #0d241c 0%, #060f0c 72%);
 }
 
 .radar-svg {
@@ -16,6 +18,19 @@
   stroke: #1f6f4a;
   stroke-opacity: 0.35;
   stroke-width: 1;
+}
+
+.scan-label {
+  fill: #2f8f63;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  font-family: inherit;
+}
+
+.scan-report-id {
+  fill: #6b8f7e;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
 }
 
 .sweep-group {
@@ -73,10 +88,37 @@
   to { r: 54; opacity: 0; }
 }
 
+.node-group {
+  cursor: default;
+}
+
+.node-group:hover .node-dot {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.7));
+}
+
+.node-group:hover .node-label {
+  fill: #ffffff;
+}
+
 .node-label {
   fill: #d1fae5;
   font-size: 15px;
   font-family: inherit;
+  font-weight: 600;
+}
+
+.node-status {
+  fill: #4d7c67;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: inherit;
+  transition: fill 0.2s;
+}
+
+.node-status--active {
+  fill: #34d399;
 }
 
 .edge-line {
@@ -106,4 +148,10 @@
   max-width: 90%;
   overflow: hidden;
   text-overflow: ellipsis;
+  animation: toast-in 0.25s ease-out;
+}
+
+@keyframes toast-in {
+  from { transform: translate(-50%, 10px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
 }

@@ -2,9 +2,24 @@ import { AGENT_IDS } from "../mock/scenarios";
 import "./RadarCanvas.css";
 
 const NODES = {
-  [AGENT_IDS.ORCH]: { x: 300, y: 90, label: "Orchestrator" },
-  [AGENT_IDS.SCREEN]: { x: 120, y: 460, label: "Screening" },
-  [AGENT_IDS.PII]: { x: 480, y: 460, label: "PII / Compliance" },
+  [AGENT_IDS.ORCH]: {
+    x: 300,
+    y: 90,
+    label: "Orchestrator",
+    role: "Resolves agents via the Registry, sequences the workflow, tracks per-report state in Memory Bank.",
+  },
+  [AGENT_IDS.SCREEN]: {
+    x: 120,
+    y: 460,
+    label: "Screening",
+    role: "Extracts amount, category, date, and receipt status; checks the report against policy rules.",
+  },
+  [AGENT_IDS.PII]: {
+    x: 480,
+    y: 460,
+    label: "PII / Compliance",
+    role: "Model Armor screens for injection; Cloud DLP redacts PII; issues the final verdict.",
+  },
 };
 
 function activeAgents(activeSpans) {
@@ -41,9 +56,15 @@ function edgeDurationSeconds(durationMs) {
   return Math.min(Math.max(durationMs, 150), 3000) / 1000;
 }
 
+function currentReportId(activeSpans) {
+  const withReport = activeSpans.find((s) => s.report_id);
+  return withReport?.report_id ?? null;
+}
+
 export default function RadarCanvas({ activeSpans, blip }) {
   const active = activeAgents(activeSpans);
   const edges = activeEdges(activeSpans);
+  const reportId = currentReportId(activeSpans);
 
   return (
     <div className="radar-wrap">
@@ -54,6 +75,13 @@ export default function RadarCanvas({ activeSpans, blip }) {
         <g className="sweep-group">
           <line x1="300" y1="300" x2="300" y2="40" className="sweep-line" />
         </g>
+
+        <text x="300" y="296" textAnchor="middle" className="scan-label">
+          {reportId ? "PROCESSING" : "SCANNING"}
+        </text>
+        <text x="300" y="316" textAnchor="middle" className="scan-report-id">
+          {reportId ?? "—"}
+        </text>
 
         {edges.map((e) => {
           const from = NODES[e.from];
@@ -76,7 +104,8 @@ export default function RadarCanvas({ activeSpans, blip }) {
           const isActive = active.has(agent);
           const isBlipping = blip?.agent === agent;
           return (
-            <g key={agent} transform={`translate(${node.x}, ${node.y})`}>
+            <g key={agent} transform={`translate(${node.x}, ${node.y})`} className="node-group">
+              <title>{`${node.label} — ${node.role}`}</title>
               {isActive && <circle r="34" className="node-pulse" />}
               {isBlipping && <circle r="46" className="node-blip" />}
               <circle
@@ -87,6 +116,9 @@ export default function RadarCanvas({ activeSpans, blip }) {
               />
               <text y="48" textAnchor="middle" className="node-label">
                 {node.label}
+              </text>
+              <text y="64" textAnchor="middle" className={`node-status ${isActive ? "node-status--active" : ""}`}>
+                {isActive ? "active" : "idle"}
               </text>
             </g>
           );

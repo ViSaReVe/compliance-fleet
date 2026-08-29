@@ -48,6 +48,14 @@ const VERDICT_CLASS = {
   pending: "verdict--pending",
 };
 
+const VERDICT_HINT = {
+  approved: "Within policy, no action needed.",
+  flagged: "Policy violation found; needs a closer look.",
+  escalated: "Over a threshold with no pre-approval — parked for a manager.",
+  blocked: "Model Armor or the Agent Gateway intercepted this before it completed.",
+  pending: "Still in progress.",
+};
+
 export default function AuditDrawer({ completedSpans, mode }) {
   const [openReport, setOpenReport] = useState(null);
   const [flashId, setFlashId] = useState(null);
@@ -102,7 +110,9 @@ export default function AuditDrawer({ completedSpans, mode }) {
             <li key={id} className={`report-item ${flashId === id ? "report-item--flash" : ""}`}>
               <button className="report-row" onClick={() => setOpenReport(isOpen ? null : id)}>
                 <span className="report-id">{id}</span>
-                <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`}>{verdict}</span>
+                <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`} title={VERDICT_HINT[verdict]}>
+                  {verdict}
+                </span>
               </button>
               {awaitingApproval && (
                 <div className="approval-row">
