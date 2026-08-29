@@ -96,7 +96,10 @@ def deploy_fleet():
             # <parent of fleet>/policies/rules.yaml, which remotely is
             # /code/policies/rules.yaml. Without it the policy tool raises
             # FileNotFoundError at call time rather than at startup.
-            "extra_packages": ["fleet", "policies"],
+            # fixtures/ ships too: records.py resolves the system of record from it,
+            # and without it every attestable lookup fails closed on FileNotFoundError
+            # rather than on an honest "no such report".
+            "extra_packages": ["fleet", "policies", "fixtures"],
             # pydantic and cloudpickle are not optional. The deploy warns
             # "The following requirements are missing: {'pydantic', 'cloudpickle'}"
             # and then succeeds anyway — but the agent object never rehydrates in the

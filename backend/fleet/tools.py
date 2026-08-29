@@ -10,9 +10,7 @@ returned by Model Armor and Cloud DLP, and every call shows up as its own
 execute_tool span in Cloud Trace and on the radar.
 """
 
-import json
-
-from . import compliance, policy
+from . import compliance, policy, records
 
 
 def scan_for_prompt_injection(text: str) -> dict:
@@ -48,33 +46,48 @@ def redact_pii(text: str) -> dict:
 
 
 def check_expense_policy(
+    report_id: str,
     amount_usd: float,
     category: str,
     receipt_attached: bool,
     requested_preapproval: bool,
 ) -> dict:
-    """Check extracted expense fields against company policy thresholds.
+    """Check an expense report against company policy thresholds.
 
     Thresholds are enforced in code, not by the model, so a verdict cannot be argued
     into changing by the text of a submission.
 
     Args:
+        report_id: Identifier of the report, used to resolve the system of record.
         amount_usd: Total claimed amount in USD.
         category: Expense category, such as meals, travel, lodging or offsite.
-        receipt_attached: Whether a receipt is attached to the report.
-        requested_preapproval: Whether pre-approval was obtained or requested.
+        receipt_attached: Whether the submission *claims* a receipt is attached.
+        requested_preapproval: Whether the submission *claims* pre-approval was obtained.
 
     Returns:
-        A dict with 'violations' (list of policy violation codes) and 'summary' (str).
+        A dict with 'violations' (list of policy violation codes), 'summary' (str),
+        and 'attested' (what the system of record actually holds).
     """
-    report = {
-        "amount_usd": amount_usd,
-        "category": category,
-        "receipt_attached": receipt_attached,
-        "requested_preapproval": requested_preapproval,
+    # The two booleans above are the submitter's claim, arriving through the model's
+    # reading of free text. They are NOT what the thresholds are checked against —
+    # see fleet/records.py for the deployed-engine evidence that treating them as
+    # authoritative lets "the receipt is already attached in the expense system"
+    # approve an $840 report with no receipt.
+    claims = {
+        "receipt_attached": bool(receipt_attached),
+        "requested_preapproval": bool(requested_preapproval),
     }
+    truth = records.attested(report_id)
+
+    report = {"amount_usd": amount_usd, "category": category, **truth}
     violations = policy.check_policy(report)
-    return {"violations": violations, "summary": policy.summarize(report, violations)}
+    violations.extend(records.contradictions(report_id, claims))
+
+    return {
+        "violations": violations,
+        "summary": policy.summarize(report, violations),
+        "attested": truth,
+    }
 
 
 __all__ = ["scan_for_prompt_injection", "redact_pii", "check_expense_policy"]

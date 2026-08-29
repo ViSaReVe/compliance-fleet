@@ -38,11 +38,33 @@ def check_policy(report, rules=None):
     return violations
 
 
+UNVERIFIED_CLAIM_SUMMARY = {
+    "UNVERIFIED_RECEIPT_ATTACHED_CLAIM":
+        "the submission states a receipt is attached; the expense system has none on file",
+    "UNVERIFIED_REQUESTED_PREAPPROVAL_CLAIM":
+        "the submission states pre-approval was obtained; the approvals record shows none",
+}
+
+
+def escalates(violations):
+    """Whether these violations need a human rather than an automatic verdict."""
+    escalating = load_rules().get("escalating_violations") or ["OVER_LIMIT_NO_PREAPPROVAL"]
+    return any(code in escalating for code in violations)
+
+
 def summarize(report, violations):
+    amount = f"${report['amount_usd']:.0f}"
     if not violations:
-        return f"${report['amount_usd']:.0f} within policy."
+        return f"{amount} within policy."
+
+    # An unverified claim leads, because it is the finding a human most needs to see —
+    # a threshold breach is arithmetic, a contradicted claim is a judgement call.
+    for code, reason in UNVERIFIED_CLAIM_SUMMARY.items():
+        if code in violations:
+            return f"{amount} escalated: {reason}."
+
     if "OVER_LIMIT_NO_PREAPPROVAL" in violations:
-        return f"${report['amount_usd']:.0f} exceeds pre-approval threshold with none requested."
+        return f"{amount} exceeds pre-approval threshold with none requested."
     if "OVER_LIMIT_NO_RECEIPT" in violations:
-        return f"${report['amount_usd']:.0f} exceeds receipt-free cap with no receipt attached."
+        return f"{amount} exceeds receipt-free cap with no receipt attached."
     return ", ".join(violations)

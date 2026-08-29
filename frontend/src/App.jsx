@@ -4,9 +4,10 @@ import AuditDrawer from "./components/AuditDrawer";
 import ScenarioPicker from "./components/ScenarioPicker";
 import { useTracePlayer } from "./lib/useTracePlayer";
 import { useLiveTraceStream } from "./lib/useLiveTraceStream";
+import { BACKEND_URL } from "./lib/config";
 import "./App.css";
 
-const EVENTS_URL = "http://localhost:8000/events";
+const EVENTS_URL = `${BACKEND_URL}/events`;
 
 export default function App() {
   const [mode, setMode] = useState("replay"); // "replay" | "live"

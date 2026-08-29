@@ -159,7 +159,7 @@ def decide(report):
                     )
                     _, redactions = compliance.redact(combined)
 
-                    if "OVER_LIMIT_NO_PREAPPROVAL" in violations:
+                    if policy.escalates(violations):
                         verdict = "escalated"
                     elif violations:
                         verdict = "flagged"

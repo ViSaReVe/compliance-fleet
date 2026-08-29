@@ -22,7 +22,7 @@ function isAwaitingApproval(spans, verdict) {
   return !spans.some((s) => s.attributes?.manager_decision);
 }
 
-const EVENTS_HOST = "http://localhost:8000";
+import { BACKEND_URL as EVENTS_HOST } from "../lib/config";
 
 // The trace contract types violations as an array, but a backend that ships it as a
 // JSON string would otherwise blank the whole drawer mid-demo. Normalise, don't crash.

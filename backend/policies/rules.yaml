@@ -12,6 +12,14 @@ preapproval_required_above_usd: 5000     # ASSUMPTION: not stated in README, onl
                                           # by the $6,200 escalation fixture exceeding it
 violation_code_no_preapproval: OVER_LIMIT_NO_PREAPPROVAL
 
+# A submission that CLAIMS an attestable fact the system of record does not support.
+# Not fraud, and not treated as fraud — treated as a reason a human should look, which
+# is what escalation is for. See fleet/records.py for why these exist at all.
+escalating_violations:
+  - OVER_LIMIT_NO_PREAPPROVAL
+  - UNVERIFIED_RECEIPT_ATTACHED_CLAIM
+  - UNVERIFIED_REQUESTED_PREAPPROVAL_CLAIM
+
 # ASSUMPTION: no disallowed categories are defined anywhere yet. Left empty rather than
 # invented — Screening Agent should treat this list as optional until policy is set.
 disallowed_categories: []
