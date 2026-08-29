@@ -19,6 +19,21 @@ def load_rules():
         return yaml.safe_load(f)
 
 
+# Every field a submitter can influence. Model Armor must see all of it, not just
+# the description: an identical injection string was BLOCKED in `description` and
+# APPROVED when moved into `receipt_ocr_text`, because only the description was ever
+# scanned. Receipt OCR is the textbook indirect-injection vector — it is attacker-
+# supplied document text that the system reads as data.
+UNTRUSTED_FIELDS = ("description", "receipt_ocr_text", "merchant")
+
+
+def untrusted_text(report):
+    """Everything the submitter wrote, joined, for the guardrail to inspect."""
+    return "\n".join(
+        str(report.get(field)) for field in UNTRUSTED_FIELDS if report.get(field)
+    )
+
+
 def check_policy(report, rules=None):
     """Return the list of violation codes a report triggers. Pure, no I/O."""
     rules = rules or load_rules()

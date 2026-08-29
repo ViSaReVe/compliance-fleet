@@ -93,6 +93,39 @@ def _dlp():
     return _dlp_client
 
 
+# Filters that mean "this text is trying to attack the system". A match on any of
+# these blocks the report.
+THREAT_FILTERS = (
+    "pi_and_jailbreak_filter_result",
+    "malicious_uri_filter_result",
+    "csam_filter_filter_result",
+    "rai_filter_result",
+)
+
+# Sensitive Data Protection is NOT a threat filter. It fires on the credit card
+# number in a perfectly ordinary taxi receipt. Treating it as an attack blocked a
+# legitimate expense and — worse — labelled a card number as a prompt injection in
+# the audit trail. PII is Cloud DLP's job: redact it, don't reject the employee.
+SDP_FILTER = "sdp_filter_result"
+
+
+def _matched(sub_result):
+    """Whether one filter sub-result fired.
+
+    SDP nests its match_state one level deeper than every other filter, under
+    `inspect_result`. Reading `match_state` straight off it silently yields None, so
+    an SDP hit registers as "some filter matched, but not one I recognise" — which is
+    how a card number came to be reported as PROMPT_INJECTION_BLOCKED.
+    """
+    if sub_result is None:
+        return False
+    match = modelarmor_v1.FilterMatchState.MATCH_FOUND
+    if getattr(sub_result, "match_state", None) == match:
+        return True
+    inspect = getattr(sub_result, "inspect_result", None)
+    return inspect is not None and getattr(inspect, "match_state", None) == match
+
+
 def screen_for_injection(text):
     """Ask Model Armor whether this free text is trying to steer the agent.
 
@@ -115,25 +148,45 @@ def screen_for_injection(text):
     if result.filter_match_state != modelarmor_v1.FilterMatchState.MATCH_FOUND:
         return False, None
 
-    # filter_results is a map of filter name -> FilterResult, and FilterResult is a
-    # wrapper holding one populated sub-result per filter type. Each sub-result
-    # carries its own match_state; there is no match_state on the wrapper.
-    match = modelarmor_v1.FilterMatchState.MATCH_FOUND
+    # filter_results maps a filter name to a wrapper holding one populated sub-result.
+    # The wrapper carries no match_state of its own; each sub-result carries its own.
     triggered = []
     for name, outcome in result.filter_results.items():
-        for field in (
-            "pi_and_jailbreak_filter_result",
-            "rai_filter_result",
-            "malicious_uri_filter_result",
-            "csam_filter_filter_result",
-        ):
-            sub = getattr(outcome, field, None)
-            if sub is not None and getattr(sub, "match_state", None) == match:
+        for field in THREAT_FILTERS:
+            if _matched(getattr(outcome, field, None)):
                 triggered.append(name)
                 break
 
-    detail = f" ({', '.join(sorted(triggered))})" if triggered else ""
-    return True, f"PROMPT_INJECTION_BLOCKED{detail}"
+    if not triggered:
+        # Something matched, but nothing that constitutes an attack — in practice SDP
+        # finding PII. Let the report through to redaction rather than rejecting it.
+        return False, None
+
+    return True, f"PROMPT_INJECTION_BLOCKED ({', '.join(sorted(triggered))})"
+
+
+def screen_report(report):
+    """Screen every submitter-controlled field, one at a time.
+
+    Deliberately not one joined string. Measured on the deployed template: the
+    injection in EXP-2026-0004's description is BLOCKED when scanned alone and
+    NOT blocked once the benign receipt text is concatenated onto it — extra context
+    dilutes the classifier's confidence below the threshold. Scanning per field keeps
+    each one at full salience and still covers the receipt OCR text, which is where
+    an attacker would actually hide the instruction.
+
+    Returns (blocked, verdict, field) — the field so the audit trail can say where.
+    """
+    from . import policy
+
+    for field in policy.UNTRUSTED_FIELDS:
+        value = report.get(field)
+        if not value:
+            continue
+        blocked, verdict = screen_for_injection(str(value))
+        if blocked:
+            return True, verdict, field
+    return False, None, None
 
 
 def redact(text):
