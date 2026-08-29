@@ -73,6 +73,18 @@ export default function RadarCanvas({ activeSpans, blip }) {
         <circle cx="300" cy="300" r="175" className="ring" />
         <circle cx="300" cy="300" r="90" className="ring" />
         <g className="sweep-group">
+          {[24, 18, 12, 6].map((deg) => (
+            <line
+              key={deg}
+              x1="300"
+              y1="300"
+              x2="300"
+              y2="40"
+              className="sweep-trail"
+              style={{ opacity: 0.5 - deg / 48 }}
+              transform={`rotate(-${deg} 300 300)`}
+            />
+          ))}
           <line x1="300" y1="300" x2="300" y2="40" className="sweep-line" />
         </g>
 

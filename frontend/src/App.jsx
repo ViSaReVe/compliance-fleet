@@ -18,6 +18,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="starfield" aria-hidden="true" />
       <header className="app-header">
         <h1>Agent Radar</h1>
         <p className="app-subtitle">
