@@ -14,6 +14,7 @@ shoot to the shot list.
 | "uploaded to and made publicly visible on YouTube or Vimeo" | Unlisted is a risk — the wording says publicly visible. Upload public. |
 | "must be in English or include English subtitles" | Narrate in English, and turn on auto-captions anyway. |
 | "Must demonstrate the backend is running on Google Cloud (ie: Google Cloud Console, Cloud Run dashboard, Vertex AI logs, URL of .run, etc)" | A localhost radar alone **fails this**. The Cloud Console + Cloud Trace shots are not optional garnish. |
+| **"The Proof of Action: Does the video show an *unedited, live execution* of the agent performing its task (via terminal logs, database updates, or UI changes)?"** | **Beats 3 and 4 are each one unbroken take.** No cuts inside them, no speed-ups, no splicing a better run over a worse one. This is a scored line item, not a stylistic preference. |
 
 ### What each beat is buying
 
@@ -129,6 +130,12 @@ you the opener and loses the escalation. Take the first pass.
 > of head start before its first review, so an already-open radar is attached when
 > `0001` runs. Two lines in `fleet/server.py`. Not required for the script below.
 
+**One take, no cuts.** The rules score "an unedited, live execution of the agent
+performing its task". Beat 3 runs from the terminal command to the manager approval
+in a single unbroken recording — roughly 80 seconds. If a take goes wrong, throw the
+whole take away and start it again; do not repair it in the edit. Keep the terminal
+visible in a corner of the frame so the run is self-evidently live.
+
 **The park is on a timer too.** `0005` escalates at about 24 seconds after server
 start. Don't click **Approve** the instant it appears — let the ESCALATED row and the
 `Awaiting manager…` line sit on screen for two seconds first. That pause *is* the
@@ -164,7 +171,10 @@ point of the feature.
 
 ### Beat 4 — proof it runs on Google Cloud (2:12 – 3:00)
 
-**This is the 30% beat. Do not rush it and do not cut it for time.**
+**This is the 30% beat. Do not rush it and do not cut it for time.** Like beat 3, it
+is one unbroken take: run the command live, then tab across to the Console and Cloud
+Trace in the same recording. Pre-loading those tabs is fine and sensible; cutting
+between them is not.
 
 **Shot A — terminal.** Run `python -m fleet.verify_deployed` live. Let the three
 PASS lines land on screen.
@@ -235,7 +245,7 @@ Hard cut. No outro card, no music sting, no thanks-for-watching.
 | `verify_deployed` fails on injection | Almost certainly expired ADC, not a broken deploy. `gcloud auth application-default login`, then re-run. |
 | Nothing in Cloud Trace | Ingestion lag. Do not re-debug the exporter on camera — this is why you generate traces during pre-flight. |
 | Escalated report won't Approve | It was already resolved this session. Restart `fleet.server` to re-park it. |
-| A report you don't want appears | Let it pass. Don't narrate the edge-case fixtures — cut them out. |
+| A report you don't want appears | Let it pass and keep rolling — **do not cut it out.** Stop narrating, let it scroll past, pick up at the next one. An edge-case fixture on screen costs nothing; a visible edit inside the execution take costs the "unedited, live execution" line. |
 | `EXP-2026-0001` missing from the trail | Expected — the SSE reconnect costs the first slot. Narrate four scenarios, as scripted. |
 
 ---

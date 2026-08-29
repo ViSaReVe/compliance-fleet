@@ -83,6 +83,20 @@ Three cutover bugs found and fixed, all invisible to the local eval:
 3. A radar disconnecting mid-SSE printed a full `ConnectionResetError` traceback,
    which on a demo screen reads as the backend crashing. Swallowed in `Server.handle_error`.
 
+## Submission compliance
+
+`docs/SUBMISSION.md` is the checklist, read against the posted Official Rules. Three
+things in there that were not obvious from the summary page:
+
+- **The Cloud-service requirement is fine.** The rules say "such as Cloud Run, Cloud
+  SQL, ..." — non-exhaustive, so Agent Runtime / Cloud Storage / Cloud Trace qualify.
+  Only the Devpost form's checkbox list is narrow. Do not panic-deploy to Cloud Run.
+- **The video must show "unedited, live execution."** Beats 3 and 4 are unbroken
+  takes. Earlier demo guidance said to cut unwanted fixtures out; that was wrong and
+  `docs/DEMO.md` is corrected.
+- **The project must stay testable until Oct 1**, not Aug 31 — judging runs a month.
+  Idle engines are free; the six-second review loop is not.
+
 ## Remaining work, in order
 
 1. **Record the ~4-minute video.** Script is written: `docs/DEMO.md` — beat-by-beat
