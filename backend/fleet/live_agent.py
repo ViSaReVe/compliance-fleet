@@ -32,7 +32,7 @@ import json
 
 from opentelemetry import trace
 
-from . import config, policy, telemetry
+from . import config, invariants, policy, telemetry
 from .verify_deployed import stream_query
 
 # Sub-agent names the radar has nodes for. An event from anywhere else is attributed
@@ -183,7 +183,18 @@ def review(report):
             span.end()
 
         verdict, armor_verdict, violations = _derive(tool_results, parked)
+
+        # The trace is a control, not just a record. If the agents skipped a security
+        # step, the verdict they arrived at has nothing behind it — escalate to a
+        # human rather than trusting a confident sentence. Evidence comes from the
+        # runtime's function_response events, which the agent does not write.
+        evidence = invariants.Evidence.from_tool_results(tool_results, violations)
+        verdict, violations, broken = invariants.enforce(evidence, verdict, violations)
+
         summary = _summarize(report, verdict, violations, armor_verdict, redactions)
+        if broken:
+            summary = invariants.describe(broken)
+            print(f"[live_agent] {report_id}: {summary}")
 
         result = {
             "verdict": verdict,
@@ -198,6 +209,11 @@ def review(report):
         if armor_verdict:
             root.set_attribute("fleet.armor_verdict", armor_verdict)
             root.set_attribute("fleet.status", "BLOCKED")
+        if broken:
+            # The radar renders this like any other block — a run that skipped a
+            # security step should look as alarming as one that was attacked.
+            root.set_attribute("fleet.status", "BLOCKED")
+            root.set_attribute("fleet.invariant_broken", list(broken))
         return result
     finally:
         root.end()

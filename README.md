@@ -169,7 +169,8 @@ interface instead of being debugged against a moving frontend.
 | Memory Bank | **Verified attached** | `backend/fleet/orchestrator.py` |
 | ADK-native OpenTelemetry spans | **Verified** — radar renders them live; same spans reach Cloud Trace | `backend/fleet/telemetry.py` |
 | Deployed-engine smoke test | **3/3** | `python -m fleet.verify_deployed` |
-| Adversarial claim eval | **5/5 local** | `python -m fleet.eval_claims` — see [docs/EVALUATION.md](docs/EVALUATION.md) |
+| Adversarial claim eval | **35/35 local** | `python -m fleet.eval_claims` — claims, trace invariants, and every report × attack |
+| Trace invariants enforced | **Working** on both paths | `backend/fleet/invariants.py` |
 | Radar renders the **deployed agents** | **Working** | `FLEET_LIVE_AGENT=1 python -m fleet.server` — `backend/fleet/live_agent.py` |
 | System of record for attestable facts | **Working**, deployed engine not yet redeployed | `backend/fleet/records.py` |
 | Deny-by-default call boundary | **Working** (local allowlist) | `backend/devtools/agent_gateway.py` — see honesty note below |
@@ -186,6 +187,13 @@ the roadmap, not the demo. Likewise the orchestrator's Agent Registry resolution
 not individually registered as A2A services; the registry's verified role is that the
 deployed engine was auto-registered under its Agent Identity principal, framework
 detected as `google-adk`.
+
+**The trace is a control.** A verdict is only allowed to stand if the run that
+produced it contains the evidence spans it depends on. An `approved` with no
+`scan_for_prompt_injection` in its trace does not fail open, and does not fail shut —
+it **escalates to a human** carrying `MISSING_SECURITY_EVIDENCE:scan_for_prompt_injection`.
+On the agent path that evidence comes from the runtime's own `function_response`
+events, which the agent does not write and so cannot forge. See `fleet/invariants.py`.
 
 **The claim boundary.** Enforcing thresholds in code is only half the argument. We
 probed our own deployed engine and found the other half missing: `"the receipt is
@@ -531,7 +539,7 @@ phrasing) each with an expected verdict, collected into `evals/eval_set.json`. R
 
 ```bash
 python3 backend/devtools/run_eval.py     # 13/13 policy cases, no GCP, no cost
-python -m fleet.eval_claims              # 5/5 adversarial claim cases
+python -m fleet.eval_claims              # 35/35: claims, invariants, cross-product
 ```
 
 The runner drives `devtools/decision.py`, which `fleet/orchestrator.decide()` mirrors
@@ -567,6 +575,7 @@ backend/
     register.py        #   Agent Registry publication (optional — auto-registered)
     records.py         #   system of record for attestable facts
     live_agent.py      #   drives the DEPLOYED agents, maps their events to spans
+    invariants.py      #   a verdict without its evidence spans does not stand
     verify_deployed.py #   3 assertions against the DEPLOYED engine
     eval_claims.py     #   adversarial eval: contradicted claims must escalate
   policies/rules.yaml

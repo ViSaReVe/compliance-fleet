@@ -118,10 +118,10 @@ Both [AgentDojo](https://openreview.net/forum?id=m1YYAQjO3w) and τ-bench get th
 
 ## Ranked backlog
 
-Ordered by value per hour against a two-day deadline. Everything above the line is
-plausibly doable; everything below it is honest roadmap.
+All four items above the line are now done. Kept here with their original reasoning
+because the *why* is what the demo and the write-up draw on.
 
-### 1. Radar drives the deployed agent — ~1h, highest value
+### ~~1. Radar drives the deployed agent~~ — **done**, `fleet/live_agent.py`
 
 Today the radar renders `orchestrator.decide()`, which is straight-line Python: real
 Model Armor and real Cloud DLP calls, but **zero LLM and zero agent**. Beat 2 of the
@@ -135,20 +135,20 @@ real `call_llm` spans, real delegation on screen.
 Cost: a few Gemini calls per report, and reports arrive in seconds rather than
 milliseconds. That is a better demo anyway — you can *see* the agent think.
 
-### 2. `pass^k` on the deployed checks — ~20min
+### ~~2. `pass^k` on the deployed checks~~ — **done**, `verify_deployed -k N`
 
 Run each `verify_deployed` check k=3 times, report `3/3` per check rather than a bare
 PASS. Directly adopts τ-bench's reliability framing, costs three times the Gemini
 calls of a run that already costs pennies, and turns "it worked when we tried it" into
 "it worked every time we tried it". Cheap credibility.
 
-### 3. Cross-product adversarial eval — ~45min
+### ~~3. Cross-product adversarial eval~~ — **done**, 24 report × attack combinations
 
 AgentDojo's structure: every fixture × every attack, not two separate lists. Turns 13
 policy cases and 3 injection cases into a matrix that would have caught the claim bug
 on day one.
 
-### 4. Invariant enforcement on the span stream — ~1h, most interesting
+### ~~4. Invariant enforcement on the trace~~ — **done**, `fleet/invariants.py`
 
 We already have a `SpanProcessor` that sees every span in order. Right now it only
 *observes*. It could **assert**:

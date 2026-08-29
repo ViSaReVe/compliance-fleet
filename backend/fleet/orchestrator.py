@@ -15,7 +15,7 @@ from google.adk.memory import VertexAiMemoryBankService
 from google.adk.sessions import VertexAiSessionService
 from google.adk.tools import load_memory, preload_memory
 
-from . import approval, compliance, config, policy, screening, telemetry, tools
+from . import approval, compliance, config, invariants, policy, screening, telemetry, tools
 
 ORCHESTRATOR_INSTRUCTION = """\
 You coordinate compliance review of a single employee expense report.
@@ -143,7 +143,14 @@ def decide(report):
                 },
             ) as span:
                 description = report.get("description") or ""
+                # Evidence accrues as steps actually run, so the invariant check at
+                # the end is reading what happened rather than what was intended.
+                # This path is trusted by construction — unlike the agent path, the
+                # code writing the evidence is the code doing the work.
+                evidence_tools = set()
+
                 blocked, armor_verdict = compliance.screen_for_injection(description)
+                evidence_tools.add("scan_for_prompt_injection")
 
                 if blocked:
                     result = {
@@ -158,6 +165,8 @@ def decide(report):
                         part for part in (report.get("receipt_ocr_text"), description) if part
                     )
                     _, redactions = compliance.redact(combined)
+                    evidence_tools.add("redact_pii")
+                    evidence_tools.add("check_expense_policy")
 
                     if policy.escalates(violations):
                         verdict = "escalated"
@@ -177,6 +186,21 @@ def decide(report):
                         "dlp_redactions": redactions,
                         "summary": text,
                     }
+
+                evidence = invariants.Evidence(
+                    tools_called=frozenset(evidence_tools),
+                    armor_blocked=blocked,
+                    violations=tuple(result["violations"]),
+                )
+                enforced, enforced_violations, broken = invariants.enforce(
+                    evidence, result["verdict"], result["violations"]
+                )
+                if broken:
+                    result["verdict"] = enforced
+                    result["violations"] = enforced_violations
+                    result["summary"] = invariants.describe(broken)
+                    span.set_attribute("fleet.invariant_broken", list(broken))
+                    span.set_attribute("fleet.status", "BLOCKED")
 
                 span.set_attribute("fleet.verdict", result["verdict"])
                 # A sequence, not json.dumps: the locked trace contract types

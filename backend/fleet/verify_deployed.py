@@ -19,7 +19,13 @@ because that is the surface the engine actually exposes (`register_operations()`
 lists `async_stream_query` under `async_stream`; calling it on `:query` returns
 "method not found" and looks like a broken deploy).
 
-Costs a few Gemini calls per run. Not a CI job — a pre-demo smoke test.
+Each check runs k times and reports pass^k, not pass@1. That is tau-bench's framing
+and it is not pedantry: a single success against a stochastic system is not evidence,
+and the claim vulnerability in fleet/records.py was only believable because it
+reproduced three times out of three. A check that passes twice in three runs is a
+failing check, and is reported as one.
+
+Costs a few Gemini calls per run per k. Not a CI job — a pre-demo smoke test.
 """
 
 import argparse
@@ -162,6 +168,30 @@ CHECKS = (
     ("escalation  run parks awaiting a human manager", check_escalation),
 )
 
+DEFAULT_TRIALS = 3
+
+
+def run_check(check, engine_id, trials):
+    """Run one check `trials` times. Passes only if it passed every time.
+
+    Reports the first failing detail rather than the last passing one — when a check
+    is flaky the failure is the interesting half.
+    """
+    passes = 0
+    detail = None
+    first_failure = None
+    for _ in range(trials):
+        try:
+            ok, this_detail = check(engine_id)
+        except Exception as exc:  # noqa: BLE001 - a failed trial is a result
+            ok, this_detail = False, f"{type(exc).__name__}: {exc}"
+        if ok:
+            passes += 1
+            detail = detail or this_detail
+        elif first_failure is None:
+            first_failure = this_detail
+    return passes, (first_failure if first_failure else detail)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -169,6 +199,13 @@ def main():
         "--engine-id",
         default=config.DEPLOYED_ENGINE_ID,
         help="reasoning engine id to verify (default: FLEET_ENGINE_ID from .env)",
+    )
+    parser.add_argument(
+        "-k",
+        "--trials",
+        type=int,
+        default=DEFAULT_TRIALS,
+        help=f"trials per check; a check must pass all of them (default {DEFAULT_TRIALS})",
     )
     args = parser.parse_args()
 
@@ -180,17 +217,19 @@ def main():
         )
         return 2
 
-    print(f"[verify] engine {args.engine_id} in {config.PROJECT_ID}/{config.LOCATION}\n")
+    k = max(1, args.trials)
+    print(
+        f"[verify] engine {args.engine_id} in {config.PROJECT_ID}/{config.LOCATION}"
+        f"  ·  pass^{k}\n"
+    )
     failures = 0
     for label, check in CHECKS:
-        try:
-            ok, detail = check(args.engine_id)
-        except Exception as exc:  # noqa: BLE001 - a failed check is the result
-            ok, detail = False, f"{type(exc).__name__}: {exc}"
-        print(f"{'PASS' if ok else 'FAIL'}  {label}\n      {detail}")
+        passes, detail = run_check(check, args.engine_id, k)
+        ok = passes == k
         failures += 0 if ok else 1
+        print(f"{'PASS' if ok else 'FAIL'}  {passes}/{k}  {label}\n      {detail}")
 
-    print(f"\n{len(CHECKS) - failures} passed, {failures} failed")
+    print(f"\n{len(CHECKS) - failures} passed, {failures} failed  (pass^{k})")
     return 1 if failures else 0
 
 
