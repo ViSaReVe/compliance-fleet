@@ -96,23 +96,27 @@ from systems security. We had done the first and called it done.
 | Surface | Exercises | LLM? | Count |
 | :--- | :--- | :--- | :--- |
 | `run_eval.py` | devtools regex + rule engine | no | 13 |
-| `eval_claims.py` | layer 2 + 3, direct Python call | no | 5 |
-| `verify_deployed.py` | layers 1–4, real agents, real tool calls | **yes** | 3 |
-| `eval_claims --deployed` | layers 1–2, real extraction | yes | 2, never run |
+| `eval_claims.py` | layer 2 + 3, trace invariants, report × attack | no | **35** |
+| `verify_deployed.py` | layers 1–4, real agents, real tool calls | **yes** | 3 × k |
+| `eval_claims --deployed` | layers 1–2, real extraction | yes | 2 |
 
-**Three assertions are our entire agent-path coverage.** The 13/13 that looks
-impressive tests the layer that was never at risk — the same blind spot that hid the
-claim bug for four days.
+Measured against how the benchmarks do it:
 
-Both [AgentDojo](https://openreview.net/forum?id=m1YYAQjO3w) and τ-bench get this right in ways we don't:
+- **Deterministic check functions on end state, never LLM-as-judge.** ✅ `verify_deployed`
+  asserts on `function_response` payloads, not on the agent's prose.
+- **Cross-product of benign tasks × attacks.** ✅ now 24 combinations — every report
+  crossed with every claim attack, [AgentDojo](https://openreview.net/forum?id=m1YYAQjO3w)-style, rather than two lists that
+  never meet. Two lists that never meet is *how the claim bug survived a green 13/13
+  for four days*: the attack cases and the policy cases each tested the half the other
+  one broke.
+- **`pass^k`, not `pass@1`.** ✅ `verify_deployed -k N`, default 3. τ-bench's framing,
+  and not pedantry — a check that passes twice in three runs is a failing check, and
+  is now reported as one.
 
-- **Deterministic check functions on end state, never LLM-as-judge.** ✅ we do this —
-  `verify_deployed` asserts on `function_response` payloads, not on the agent's prose.
-- **Cross-product of benign tasks × attacks.** AgentDojo crosses 97 tasks with
-  injections into 900+ combinations. ❌ ours are separate lists, never crossed.
-- **`pass^k`, not `pass@1`.** τ-bench measures reliability across *k* trials because
-  single-run success on a stochastic system is not evidence. ❌ every check we have
-  runs once. My probe ran 3× only because I didn't believe the first result.
+**Still thin:** the agent path is 3 checks against a deployed engine. That is the
+coverage that would catch a *deployment* regression; everything else catches a *logic*
+regression. Do not confuse 35/35 for broad agent coverage — it is broad coverage of
+the deterministic layers plus the invariants that constrain the agent one.
 
 ---
 
