@@ -18,6 +18,34 @@
   font-size: 13px;
 }
 
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #1f3a30;
+}
+
+.stat {
+  font-size: 11px;
+  color: #6b8f7e;
+}
+
+.stat--approved { color: #34d399; }
+.stat--flagged { color: #fbbf24; }
+.stat--escalated { color: #60a5fa; }
+.stat--blocked { color: #f87171; }
+
+.report-item--flash {
+  animation: flash-in 0.9s ease-out;
+}
+
+@keyframes flash-in {
+  0% { background: #16362a; box-shadow: 0 0 0 1px #34d399; border-radius: 8px; }
+  100% { background: transparent; box-shadow: 0 0 0 0 transparent; }
+}
+
 .report-list {
   list-style: none;
   margin: 0;

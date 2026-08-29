@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./AuditDrawer.css";
 
 function groupByReport(spans) {
@@ -48,10 +48,41 @@ const VERDICT_CLASS = {
   pending: "verdict--pending",
 };
 
+const VERDICT_HINT = {
+  approved: "Within policy, no action needed.",
+  flagged: "Policy violation found; needs a closer look.",
+  escalated: "Over a threshold with no pre-approval — parked for a manager.",
+  blocked: "Model Armor or the Agent Gateway intercepted this before it completed.",
+  pending: "Still in progress.",
+};
+
 export default function AuditDrawer({ completedSpans, mode }) {
   const [openReport, setOpenReport] = useState(null);
+  const [flashId, setFlashId] = useState(null);
+  const prevTopIdRef = useRef(null);
   const byReport = useMemo(() => groupByReport(completedSpans), [completedSpans]);
   const reportIds = [...byReport.keys()];
+
+  useEffect(() => {
+    const topId = reportIds[0];
+    if (topId && topId !== prevTopIdRef.current) {
+      prevTopIdRef.current = topId;
+      setFlashId(topId);
+      const t = setTimeout(() => setFlashId(null), 900);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedSpans]);
+
+  const stats = useMemo(() => {
+    const counts = { approved: 0, flagged: 0, escalated: 0, blocked: 0 };
+    for (const spans of byReport.values()) {
+      const v = verdictOf(spans);
+      if (v in counts) counts[v] += 1;
+    }
+    return counts;
+  }, [byReport]);
 
   function resolve(id, decision) {
     fetch(`${EVENTS_HOST}/${decision}/${id}`).catch(() => {});
@@ -60,6 +91,14 @@ export default function AuditDrawer({ completedSpans, mode }) {
   return (
     <div className="drawer">
       <h2 className="drawer-title">Audit trail</h2>
+      {reportIds.length > 0 && (
+        <div className="stats-row">
+          <span className="stat stat--approved">{stats.approved} approved</span>
+          <span className="stat stat--flagged">{stats.flagged} flagged</span>
+          <span className="stat stat--escalated">{stats.escalated} escalated</span>
+          <span className="stat stat--blocked">{stats.blocked} blocked</span>
+        </div>
+      )}
       {reportIds.length === 0 && <p className="drawer-empty">No reports processed yet.</p>}
       <ul className="report-list">
         {reportIds.map((id) => {
@@ -68,10 +107,12 @@ export default function AuditDrawer({ completedSpans, mode }) {
           const awaitingApproval = mode === "live" && isAwaitingApproval(spans, verdict);
           const isOpen = openReport === id;
           return (
-            <li key={id} className="report-item">
+            <li key={id} className={`report-item ${flashId === id ? "report-item--flash" : ""}`}>
               <button className="report-row" onClick={() => setOpenReport(isOpen ? null : id)}>
                 <span className="report-id">{id}</span>
-                <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`}>{verdict}</span>
+                <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`} title={VERDICT_HINT[verdict]}>
+                  {verdict}
+                </span>
               </button>
               {awaitingApproval && (
                 <div className="approval-row">
