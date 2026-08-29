@@ -20,21 +20,34 @@ Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 > `4324482036380205056`), the same fleet locally behind `python -m fleet.server`, and
 > the Agent Radar rendering its real OpenTelemetry spans over SSE.
 >
-> **Proof, in two commands** — neither of which trusts what the agent *says*:
+> **Proof, in three commands** — none of which trusts what the agent *says*:
 >
 > ```bash
-> python -m fleet.verify_deployed        # 3/3 against the deployed engine
 > python3 backend/devtools/run_eval.py   # 13/13 policy cases, no GCP, no cost
+> python -m fleet.eval_claims            # 48/48 claims, invariants, cross-product
+> python -m fleet.verify_deployed -k 3   # 3/3 at pass^3 against the deployed engine
 > ```
 >
 > `verify_deployed` asserts on the values Model Armor and Cloud DLP actually
 > returned, because a deployed `LlmAgent` will write "Model Armor: Passed" having
-> called nothing. Latest run: `PROMPT_INJECTION_BLOCKED (pi_and_jailbreak)`,
-> `redaction_count: 2`, and a run parked on `request_manager_approval`.
+> called nothing. It reports **pass^k**, not pass@1 — a check that passes twice in
+> three runs is a failing check. Latest run:
+> `PROMPT_INJECTION_BLOCKED (pi_and_jailbreak)`, `redaction_count: 2`, and a run
+> parked on `request_manager_approval`.
+>
+> `eval_claims --deployed` runs the adversarial cases through the real agents: 50/50.
+>
+> **Read [`docs/EVALUATION.md`](docs/EVALUATION.md) and [`docs/REVIEW.md`](docs/REVIEW.md) before the code.**
+> They record four vulnerabilities found by attacking this system rather than
+> describing it — an $840 expense approved with no receipt on the strength of one
+> sentence, an injection that worked in the receipt text but not the description, a
+> credit card number reported as an attack, and a report id that inherited someone
+> else's receipt. Each has a reproduction, a fix, and a regression gate. What is
+> still weak is named there too, rather than left to be found.
 >
 > `backend/devtools/` stays as the zero-cost reference pipeline the eval set runs
-> against — the fleet's verdict logic mirrors it exactly, so a policy regression
-> shows up without spending a Gemini call.
+> against. A parity gate in `eval_claims` asserts the two engines agree on every
+> fixture, because for four days they had silently drifted.
 >
 > Every API, flag, and import below was verified against ADK 2.7.1 and current GEAP
 > docs, not assumed.
