@@ -13,8 +13,8 @@ rendered live as a reasoning-chain radar.
 Built on the **Gemini Enterprise Agent Platform** (GEAP): Agent Registry, Agent
 Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 
-> **Status: the fleet is deployed and verified on Google Cloud.** Submission
-> deadline **Aug 31, 2026, 5:00 PM PT**.
+> **Status: built, deployed, verified, and recorded.** Submitted to the All Things
+> Agentic Hackathon, Fortified Enterprise Fleet track.
 >
 > **Running today:** the ADK fleet on Agent Runtime (reasoning engine
 > `4324482036380205056`), the same fleet locally behind `python -m fleet.server`, and

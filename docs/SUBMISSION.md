@@ -44,7 +44,7 @@ convenience plus the hosted URL*, not as a compliance rescue. Don't panic-deploy
 | Code repo URL | ⚠️ | Repo is **private** → must share with `testing@devpost.com` **and** `cloudhackathons@google.com`. Then open the link in an incognito window to confirm |
 | README spin-up instructions | ✅ | README Setup, steps 1–5, plus [FRONTEND.md](FRONTEND.md) for the no-GCP path |
 | Architecture diagram **uploaded** | ✅ file exists, ⬜ upload | `docs/architecture.png`. The form takes pdf/ppt/pptx/png/jpg — it must be attached, not just linked from the README |
-| Demo video | ⬜ | ~4 min, **public** on YouTube or Vimeo, English. Script: [DEMO.md](DEMO.md). Upload early — processing takes hours |
+| Demo video | **recorded** ✅, ⬜ upload | ~4 min, must be **public** on YouTube or Vimeo (not unlisted), English, captions on. **Upload now** — processing takes hours and there is no recovering from a video still processing at 5 PM |
 | Hosted project URL | **skipped, deliberately** | Left empty. It is optional, and the demo is 30% of the score — spending recording time on infra to fill an optional field is a bad trade the night before. `frontend/` already builds a hostable variant (`VITE_DEMO_ONLY=1 npm run build -- --outDir dist-hosted`, relative asset paths, Live toggle hidden) if there is time after submitting |
 | Project start date | ⬜ | Must fall inside Aug 3 – Aug 31, 2026 |
 | Google SDK used | ⬜ | Agent Development Kit (ADK) |

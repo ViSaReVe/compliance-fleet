@@ -1,7 +1,8 @@
-# Handoff — state as of 2026-08-29
+# Handoff — state as of 2026-08-31
 
-The radar now renders the deployed agents, the trace is an enforcement point, and
-four reproduced vulnerabilities are closed and redeployed. **Deadline: 2026-08-31, 5:00 PM PT — treat 3 PM as the
+**The video is recorded.** The build is frozen — everything below is submission
+mechanics, not engineering. The radar renders the deployed agents, the trace is an
+enforcement point, and six reproduced vulnerabilities are closed and redeployed. **Deadline: 2026-08-31, 5:00 PM PT — treat 3 PM as the
 real cutoff.**
 
 New session: read this, then `README.md` (*Current state*, *Engineering notes*).
@@ -120,22 +121,30 @@ python -m fleet.server                       deterministic — real Armor + DLP,
 FLEET_LIVE_AGENT=1 python -m fleet.server    the deployed agents, 9 spans a report
 ```
 
-## Remaining work, in order
+## Remaining work — submission mechanics only
 
-1. **Record the ~4-minute video.** `docs/DEMO.md` is re-timed for live-agent mode:
-   two reports, one unbroken take, 534 words of narration ≈ 3:41. The rules score
-   "unedited, live execution", so a bad take is reshot whole, never repaired.
-2. **Delete the superseded engines** — but keep `586529530034782208` until the video
-   is cut, since it is the *before* in before/after.
-3. **Hosted project URL** for the Devpost field. `npm run build` plus a static host is
-   the cheap path; `VITE_BACKEND_URL` already makes the backend configurable.
-4. **Share the private repo** with `testing@devpost.com` and `cloudhackathons@google.com`,
-   then check the link in an incognito window.
-5. **Bonus points** — a public write-up and a `#AllThingsAgenticHackathon` post is 0.4
-   on a 5-point base for under two hours. `docs/EVALUATION.md` is most of the post.
-6. **Submit by 3 PM PT Aug 31**, then stop touching the repo until winners are
-   announced. Judging runs to **Oct 1** and the project must stay testable that whole
-   time — idle engines are free, the review loops are not.
+The engineering is done. Do not change code from here; a change now invalidates the
+recording and risks the "must function as depicted in the video" requirement.
+
+1. **Upload the video to YouTube, PUBLIC** — not unlisted, the rules say "publicly
+   visible". Turn captions on. **Upload early**: processing takes hours and there is
+   no recovering from a video still processing at 5 PM.
+2. **Share the private repo** with `testing@devpost.com` and
+   `cloudhackathons@google.com`. Then open the repo link in an incognito window and
+   confirm it actually resolves.
+3. **Fill the Devpost form.** Category = **Fortified Enterprise Fleet** (it starts
+   unselected). Attach `docs/architecture.png` — it must be *uploaded*, not linked.
+   Google SDK = ADK. Project start date inside Aug 3–31. Hosted URL deliberately left
+   empty, see `SUBMISSION.md`.
+4. **Text description** — features, technologies, data sources, and *findings and
+   learnings*. The findings section is `docs/EVALUATION.md` almost verbatim.
+5. **Sohan must ACCEPT the team invite**, not just be added. An unaccepted invite is
+   the top way a teammate gets left off a finished submission.
+6. **Bonus, if time** — a public write-up plus a `#AllThingsAgenticHackathon` post is
+   0.4 on a 5-point base for about an hour. Must state it was made for this hackathon.
+7. **Submit by 3 PM PT Aug 31**, two hours of margin. Then stop touching the repo
+   until winners are announced — judging runs to **Oct 1** and the project must stay
+   testable that whole time.
 
 Explicitly deferred, with README honesty notes in place: per-agent identity split
 (one engine/one identity today), manual `register.py` A2A registration
