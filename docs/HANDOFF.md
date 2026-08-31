@@ -192,9 +192,31 @@ Explicitly deferred, with README honesty notes in place: per-agent identity spli
 - **Instructions are not controls.** The screening agent's prompt said "do not infer a
   receipt exists". It inferred one, three runs out of three.
 
-## Cost
+## Cost — measured, not estimated
 
-Idle engines unbilled; active processing per vCPU-hour. `fleet/server.py`'s
-`review_loop` reviews a fixture every six seconds forever, and every pass is a real
-Model Armor + Cloud DLP call — fine for a demo window, do not leave it running
-unattended. `verify_deployed` costs a handful of Gemini calls per run.
+**~$4 of the $100 guard consumed across the whole project as of Aug 30**, covering
+roughly a hundred deployed-agent runs, three Agent Runtime deploys, and several
+hundred Model Armor and Cloud DLP calls. The Console shows net charges at $0.00
+because credits absorb it.
+
+That works out to roughly **$0.02–0.04 per agent run**, which makes the practical
+numbers:
+
+| Activity | Rough cost |
+| :--- | :--- |
+| One `verify_deployed -k 3` | under $0.50 |
+| One full rehearsal take (2 reports) | pennies |
+| Idle deployed engines | free — storage only |
+| `FLEET_LIVE_AGENT=1` review loop | **~$4/hour** — 2 reports every 50s, forever |
+| Deterministic review loop | far less — no Gemini, but 3 Model Armor calls + DLP per report every 6s |
+
+**Rehearse as many takes as you want.** At pennies each there is no reason to record
+a compromised take rather than reshoot it.
+
+**The one real risk is leaving a review loop running unattended.** Live-agent mode
+overnight is roughly $50 — it would not exhaust the budget, but it would spend half of
+it on nobody watching. Stop the server after every take.
+
+The project must stay testable until judging ends **Oct 1**. That is nearly free: idle
+reasoning engines are unbilled, so leaving the deployed fleet up costs storage only.
+Do not leave a server loop running to "keep it warm" — the engine does not need it.
