@@ -18,12 +18,23 @@ Expense Compliance Fleet + Agent Radar
 A governed fleet of ADK agents that screens expense reports, blocks prompt injection at the boundary, redacts PII before persistence, and parks escalations for a human — rendered live as a reasoning-chain radar.
 ```
 
-**Built with** *(tags)*
+**Built with** — 18 tags, all genuinely used. Limit is 25, so there is room; do not
+pad it with things the project does not use.
+
+Ordered deliberately: the track's own stack first, since that is what a judge scanning
+the tag row is looking for, then the standards, then the plumbing.
 
 ```
-google-adk, gemini, vertex-ai, agent-runtime, agent-registry, memory-bank,
-model-armor, cloud-dlp, cloud-trace, opentelemetry, python, react, vite
+gemini, vertex-ai, google-adk, google-cloud, agent-runtime, model-armor, cloud-dlp,
+memory-bank, agent-registry, agent-identity, cloud-trace, opentelemetry,
+server-sent-events, cloud-storage, python, react, vite, javascript
 ```
+
+The field takes one tag at a time — type it, then **Enter or comma**. Pasting the
+whole line usually splits correctly, but check the row afterwards: if it came through
+as one long tag instead of eighteen, clear it and add them individually. Devpost
+autocompletes tags it already knows; anything it does not recognise gets created as a
+new tag, which is fine.
 
 ---
 
