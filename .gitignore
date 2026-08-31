@@ -10,3 +10,4 @@ dist/
 *.log
 .agent_engine_config.json
 .claude/
+.rocketride/
