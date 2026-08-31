@@ -601,6 +601,7 @@ evals/
   eval_set.json        # expected verdict per fixture
 docs/
   DEVPOST.md           # every submission field, with the text already written
+  devpost-story.md     #   the project story, paste-ready, Devpost-safe markdown
   SCRIPT.md            # the speaking script — what's on screen, what to say, timed
   SOHAN-BRIEF.md       # setup + how the system works, for whoever narrates the video
   REVIEW.md            # the system read by five different reviewers, with repros
