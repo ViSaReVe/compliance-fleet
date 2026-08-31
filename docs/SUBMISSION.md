@@ -37,6 +37,10 @@ convenience plus the hosted URL*, not as a compliance rescue. Don't panic-deploy
 
 ## Submission form
 
+> **The text for every field is written out in [DEVPOST.md](DEVPOST.md).** This page is
+> the *why* — the rules each field comes from, and the traps. That one is paste-and-go.
+
+
 | Field | Status | Note |
 | :--- | :--- | :--- |
 | Category selected | ⬜ | **Fortified Enterprise Fleet.** Easy to skip when rushing — the form starts unselected |
