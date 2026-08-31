@@ -19,16 +19,8 @@ Start with the top two. They are where the interesting work is.
 
 The full setup — bootstrap, deploy, verify — is in the [root README](../README.md).
 
-## How it was submitted
+## How it was built and submitted
 
-Kept because a hackathon submission is part of the project's history, not separate
-from it. Also useful if you are doing one.
-
-| | |
-| :--- | :--- |
-| [SUBMISSION.md](SUBMISSION.md) | Every requirement checked against the posted official rules, plus the per-track scoring sub-criteria and where this project was weakest against them. |
-| [DEMO.md](DEMO.md) | The operational half of the video: pre-flight, capture settings, what to do when something breaks mid-take. |
-| [SCRIPT.md](SCRIPT.md) | The speaking script — screen map, narration, measured to 3:47 against a 3:55 cut. |
-| [DEVPOST.md](DEVPOST.md) · [devpost-story.md](devpost-story.md) | The submission form answers and the project story. |
-| [SOHAN-BRIEF.md](SOHAN-BRIEF.md) | Onboarding written for a teammate who had never touched the backend. |
-| [HANDOFF.md](HANDOFF.md) | Running state between working sessions — what was verified, what was still broken, and the traps already paid for. |
+Working documents from the hackathon, kept in [`process/`](process/) — the session
+handoffs, the video script, the submission checklist read against the official rules.
+Process rather than product, which is why they are one level down.

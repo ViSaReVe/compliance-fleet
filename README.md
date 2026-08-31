@@ -600,18 +600,13 @@ scripts/
 evals/
   eval_set.json        # expected verdict per fixture
 docs/
-  DEVPOST.md           # every submission field, with the text already written
-  devpost-story.md     #   the project story, paste-ready, Devpost-safe markdown
-  SCRIPT.md            # the speaking script — what's on screen, what to say, timed
-  SOHAN-BRIEF.md       # setup + how the system works, for whoever narrates the video
+  EVALUATION.md        # the vulnerability we found in our own system, and the fix
   REVIEW.md            # the system read by five different reviewers, with repros
-  SUBMISSION.md        # checklist against the official rules + scoring analysis
-  DEMO.md              # 4-minute video shot list, narration, timings
-  EVALUATION.md        # the claim-boundary finding, the fix, what's still weak
+  SYSTEM.md            # the four trust layers, against the current literature
   FRONTEND.md          # running the radar with no Google Cloud account
   architecture.svg     # architecture diagram (source)
-  architecture.png     #   rendered, for the Devpost submission
-  HANDOFF.md           # session state, blockers, traps already paid for
+  architecture.png     #   rendered
+  process/             # hackathon working docs — script, checklists, handoffs
 ```
 
 ---
@@ -623,12 +618,12 @@ Aug 31 is a submission day, not a build day.
 | When | Item |
 | :--- | :--- |
 | **Fri 29** | Redeploy with the `records.py` claim fix, then `verify_deployed` + `eval_claims --deployed` |
-| **Fri 29** | Record the ~4-minute video — shot list in [`docs/DEMO.md`](docs/DEMO.md). Beats 3 and 4 must be **unbroken takes**: the rules score "unedited, live execution" |
+| **Fri 29** | Record the ~4-minute video — shot list in [`docs/process/DEMO.md`](docs/process/DEMO.md). Beats 3 and 4 must be **unbroken takes**: the rules score "unedited, live execution" |
 | **Fri 29** | Delete the three stale reasoning engines (`3279963582179049472`, `1114576586343972864`, `5958197985580941312`) so nobody queries the wrong one |
 | **Sat 30** | Verify this README from a clean clone: `bootstrap.sh` → `fleet.deploy` → `fleet.verify_deployed` |
 | **Sat 30** | Hosted radar URL for the Devpost "hosted project" field |
 | **Sat 30** | Bonus points: a public write-up and a `#AllThingsAgenticHackathon` post — 0.4 of a possible 1.0 bonus on a 5-point base, for under two hours |
-| **Mon 31** | **Submit by 3 PM PT** — two hours of margin, not zero. Full checklist in [`docs/SUBMISSION.md`](docs/SUBMISSION.md) |
+| **Mon 31** | **Submit by 3 PM PT** — two hours of margin, not zero. Full checklist in [`docs/process/SUBMISSION.md`](docs/process/SUBMISSION.md) |
 
 **Explicitly out of scope.** The full Agent Gateway path (Terraform + Private Service
 Connect + IAP service extensions) is a multi-day build on its own. Agent Registry +

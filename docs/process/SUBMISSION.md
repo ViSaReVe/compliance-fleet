@@ -44,9 +44,9 @@ convenience plus the hosted URL*, not as a compliance rescue. Don't panic-deploy
 | Field | Status | Note |
 | :--- | :--- | :--- |
 | Category selected | ⬜ | **Fortified Enterprise Fleet.** Easy to skip when rushing — the form starts unselected |
-| Text description | ⬜ | Must cover: features & functionality, technologies used, other data sources, **findings and learnings**. The findings section writes itself from [EVALUATION.md](EVALUATION.md) |
+| Text description | ⬜ | Must cover: features & functionality, technologies used, other data sources, **findings and learnings**. The findings section writes itself from [EVALUATION.md](../EVALUATION.md) |
 | Code repo URL | ⚠️ | Repo is **private** → must share with `testing@devpost.com` **and** `cloudhackathons@google.com`. Then open the link in an incognito window to confirm |
-| README spin-up instructions | ✅ | README Setup, steps 1–5, plus [FRONTEND.md](FRONTEND.md) for the no-GCP path |
+| README spin-up instructions | ✅ | README Setup, steps 1–5, plus [FRONTEND.md](../FRONTEND.md) for the no-GCP path |
 | Architecture diagram **uploaded** | ✅ file exists, ⬜ upload | `docs/architecture.png`. The form takes pdf/ppt/pptx/png/jpg — it must be attached, not just linked from the README |
 | Demo video | **recorded** ✅, ⬜ upload | ~4 min, must be **public** on YouTube or Vimeo (not unlisted), English, captions on. **Upload now** — processing takes hours and there is no recovering from a video still processing at 5 PM |
 | Hosted project URL | **skipped, deliberately** | Left empty. It is optional, and the demo is 30% of the score — spending recording time on infra to fill an optional field is a bad trade the night before. `frontend/` already builds a hostable variant (`VITE_DEMO_ONLY=1 npm run build -- --outDir dist-hosted`, relative asset paths, Live toggle hidden) if there is time after submitting |
@@ -118,7 +118,7 @@ not infer a receipt exists"*, it read "the receipt is already attached in the ex
 system" and asserted `receipt_attached: true`, three runs out of three, approving an
 $840 report with no receipt. The system now recovers from exactly that: attestable
 facts come from the system of record, the model's version is a *claim*, and a claim
-the record contradicts escalates to a human. See [EVALUATION.md](EVALUATION.md).
+the record contradicts escalates to a human. See [EVALUATION.md](../EVALUATION.md).
 
 Most submissions will answer this criterion with a retry policy. Answering it with a
 reproduced failure of your own agent, a fix at the architectural level, and a
@@ -150,7 +150,7 @@ couple of hours of work, and most teams skip it because it isn't in the main for
 
 | Bonus | Points | Effort |
 | :--- | :--- | :--- |
-| Public content piece (blog / dev.to / YouTube) on how it was built | **0.2** | [EVALUATION.md](EVALUATION.md) is most of a post already — "we attacked our own agent and it approved an $840 expense" is a real story. Must be **public, not unlisted**, and must state it was created for this hackathon |
+| Public content piece (blog / dev.to / YouTube) on how it was built | **0.2** | [EVALUATION.md](../EVALUATION.md) is most of a post already — "we attacked our own agent and it approved an $840 expense" is a real story. Must be **public, not unlisted**, and must state it was created for this hackathon |
 | Social post with `#AllThingsAgenticHackathon` | **0.2** | Ten minutes. LinkedIn or X |
 | Each additional Google AI model (Gemma, Veo, Lyria) | **0.2 each, max 0.6** | Hardest of the three. A Gemma call somewhere real is the plausible one; do not bolt on a fake integration |
 
