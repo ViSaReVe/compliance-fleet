@@ -118,9 +118,10 @@ earbuds with a mic beat AirPods for this; Bluetooth compresses voice hard.
 
 ## The shot list
 
-Narration below is **526 words ≈ 3:38** at a normal 145 words per minute, counted per
+Narration below is **548 words ≈ 3:47** at a normal 145 words per minute, counted per
 beat — the per-beat timings in each header are the measured cost of that beat's words,
-not a guess. That leaves ~17 seconds against the 3:55 cut. Spend it on the pauses
+not a guess. That leaves ~8 seconds against the 3:55 cut, so it is tight — if you cut shot D
+(Cloud Trace), you get another 5 back. Spend it on the pauses
 marked in beat 3 and beat 4, not on extra sentences: every word you add here comes out
 of the Google Cloud proof at the other end, and that's 30% of the score.
 
@@ -159,7 +160,7 @@ box outward. Do not read the diagram aloud — point at three things.
 
 ---
 
-### Beat 3 — the fleet acting (0:47 – 2:12)
+### Beat 3 — the fleet acting (0:47 – 2:05)
 
 **Which mode to record.** The server has two, and this matters more than anything
 else in the shot list:
@@ -233,7 +234,7 @@ reason — **type them on camera.** That prompt is the beat.
 
 ---
 
-### Beat 4 — proof it runs on Google Cloud (2:12 – 3:00)
+### Beat 4 — proof it runs on Google Cloud (2:05 – 3:00)
 
 **This is the 30% beat. Do not rush it and do not cut it for time.** Like beat 3, it
 is one unbroken take: run the command live, then tab across to the Console and Cloud
@@ -244,10 +245,9 @@ between them is not.
 PASS lines land on screen.
 
 > Now the part that matters: is this really on Google Cloud? One command.
-> `verify_deployed` queries the deployed reasoning engine — not a local process —
-> and asserts on what Model Armor and Cloud DLP *returned*, because a deployed
-> agent will happily write "Model Armor: passed" having called nothing. Three of
-> three.
+> `verify_deployed` queries the deployed engine — not a local process — and asserts
+> on what Model Armor and Cloud DLP *returned*, because a deployed agent will
+> happily write "Model Armor: passed" having called nothing.
 
 **Shot B — Cloud Console**, reasoning engine `4324482036380205056`.
 
@@ -255,25 +255,52 @@ PASS lines land on screen.
 > auto-registered in Agent Registry, framework detected as `google-adk`. That's
 > "cataloged for cross-department use", satisfied by actually using it.
 
-**Shot C — Cloud Trace** *(optional — check it first, see below)*, a recent trace
-expanded to show `invoke_agent` and its `execute_tool` children.
+**Shot C — the API dashboard.** Console → APIs & Services → the requests table for
+`nice-hangar-506120-t5`, last 24 hours. This is the strongest single frame in the
+whole video:
 
-> And the spans in Cloud Trace. Same spans the radar just drew: one SpanProcessor,
-> two sinks, no second instrumentation path that can drift.
+```
+Agent Platform API                628 requests   0 errors
+Telemetry API                     201 requests   0 errors
+Model Armor API                    46 requests   0 errors
+IAM Service Account Credentials    17 requests   0 errors
+Sensitive Data Protection (DLP)    14 requests   0 errors
+```
 
-> **Shot C is optional, and you must check it before committing to it.** Open the
+Every box in the beat-2 architecture diagram, firing, with zero errors — the agents,
+the span export, the guardrail, the impersonation hop, and redaction. A single trace
+waterfall shows one run; this shows the whole system being exercised. Point at the
+Model Armor number next to the DLP number while you say it: **46 against 14, roughly
+three to one, is the per-field scanning showing up in billing data.**
+
+**Shot D — Cloud Trace** *(optional, check during pre-flight)*, a recent trace
+expanded to show `invoke_agent` and its `execute_tool` children. If you include it,
+add one line — and if you cut the shot, cut the line with it:
+
+> Same spans reach Cloud Trace: one SpanProcessor, two sinks, nothing that can drift.
+
+> And the whole architecture in one frame. Six hundred agent calls, two hundred
+> span exports, forty-six Model Armor scans, fourteen DLP redactions, zero errors.
+> Armor against DLP is three to one — that is the per-field scanning, showing up in
+> billing data.
+
+> **Shot D is optional, and you must check it before committing to it.** Open the
 > Trace Explorer in the Console during pre-flight and confirm spans are actually
 > visible. Spans are exported over OTLP to `telemetry.googleapis.com` and the
 > exporter reports success, but the deprecated `cloudtrace.v1 traces.list` API
 > returns nothing for them, so we cannot confirm from the command line what the
 > Console will show.
 >
-> **If the Trace Explorer is empty, cut shot C and move on.** The rule is *"must
+> The Telemetry API shows **201 requests, 0 errors**, so the spans are definitely
+> being accepted — but the deprecated `cloudtrace.v1 traces.list` cannot read what
+> the Telemetry API writes, so only the Console can tell you what it renders.
+>
+> **If the Trace Explorer is empty, cut shot D and move on.** The rule is *"must
 > demonstrate the backend is running on Google Cloud (ie: Google Cloud Console,
 > Cloud Run dashboard, Vertex AI logs, URL of .run, etc)"* — the Console page for
 > reasoning engine `4324482036380205056`, plus `verify_deployed` executing live
-> against it, satisfies that on its own. Cloud Trace is a bonus shot, not the
-> requirement. Do not debug telemetry on camera.
+> against it, plus shot C's API table, satisfies that three times over. Cloud Trace
+> is a bonus shot, not the requirement. Do not debug telemetry on camera.
 
 ---
 
