@@ -179,3 +179,34 @@
   font-size: 11px;
   color: #fbbf24;
 }
+
+/* Attribution capture. Inline rather than window.prompt(): prompt() throws in a
+   sandboxed frame, and an uncaught throw here would take the whole drawer down. */
+.approval-sign {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent, #3ddc97);
+  margin: 4px 0 8px;
+}
+
+.approval-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 9px;
+}
+
+.approval-input:focus {
+  outline: none;
+  border-color: var(--accent, #3ddc97);
+}
+
+.approve-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

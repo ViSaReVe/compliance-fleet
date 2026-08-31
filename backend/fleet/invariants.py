@@ -102,7 +102,19 @@ def check(evidence, verdict, report=None):
 
     # Did the injection scan actually see the untrusted text? A call with the wrong
     # argument is not evidence of anything.
-    if report is not None and "scan_for_prompt_injection" in evidence.tools_called:
+    #
+    # Only for runs that were NOT blocked. This check exists because a *clean* scan
+    # result proves nothing about text the scanner never saw — but a scan that fired
+    # is conclusive on its own. Once Model Armor has rejected the report there is
+    # nothing left to prove, and demanding the remaining fields be scanned anyway
+    # downgrades a correct block into an escalation, which is strictly worse: it sends
+    # a caught attack to a human as though it were a borderline case.
+    if (
+        verdict != "blocked"
+        and not evidence.armor_blocked
+        and report is not None
+        and "scan_for_prompt_injection" in evidence.tools_called
+    ):
         from . import policy
 
         unscanned = [

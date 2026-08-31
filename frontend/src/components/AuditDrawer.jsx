@@ -84,15 +84,26 @@ export default function AuditDrawer({ completedSpans, mode }) {
     return counts;
   }, [byReport]);
 
-  function resolve(id, decision) {
-    // Who and why, not just what. An approval trail without attribution is not a
-    // trail — see fleet/server.py resolve_pending. Prompt rather than silently
-    // sending an unattributed decision.
-    const approver = window.prompt(`Your name, to record on this ${decision}:`, "");
-    if (approver === null) return; // cancelled — do not resolve
-    const reason = window.prompt("Reason (optional):", "") || "";
+  // Who and why, not just what. An approval trail without attribution is not a
+  // trail — see fleet/server.py resolve_pending.
+  //
+  // Inline fields rather than window.prompt(): prompt() throws
+  // "prompt() is not supported" in a sandboxed frame, and an uncaught throw here
+  // would take the drawer down. It also films better — a form you type into reads
+  // as part of the product, a browser modal reads as a debug affordance.
+  const [signing, setSigning] = useState(null); // { id, decision }
+  const [approver, setApprover] = useState("");
+  const [reason, setReason] = useState("");
+
+  function submitDecision() {
+    if (!signing || !approver.trim()) return;
     const query = new URLSearchParams({ approver, reason }).toString();
-    fetch(`${EVENTS_HOST}/${decision}/${id}?${query}`, { method: "POST" }).catch(() => {});
+    fetch(`${EVENTS_HOST}/${signing.decision}/${signing.id}?${query}`, {
+      method: "POST",
+    }).catch(() => {});
+    setSigning(null);
+    setApprover("");
+    setReason("");
   }
 
   return (
@@ -121,15 +132,55 @@ export default function AuditDrawer({ completedSpans, mode }) {
                   {verdict}
                 </span>
               </button>
-              {awaitingApproval && (
+              {awaitingApproval && signing?.id !== id && (
                 <div className="approval-row">
                   <span className="approval-label">Awaiting manager…</span>
-                  <button className="approve-btn approve-btn--yes" onClick={() => resolve(id, "approve")}>
+                  <button
+                    className="approve-btn approve-btn--yes"
+                    onClick={() => setSigning({ id, decision: "approve" })}
+                  >
                     Approve
                   </button>
-                  <button className="approve-btn approve-btn--no" onClick={() => resolve(id, "deny")}>
+                  <button
+                    className="approve-btn approve-btn--no"
+                    onClick={() => setSigning({ id, decision: "deny" })}
+                  >
                     Deny
                   </button>
+                </div>
+              )}
+              {awaitingApproval && signing?.id === id && (
+                <div className="approval-sign">
+                  <span className="approval-label">
+                    Recording who {signing.decision === "approve" ? "approved" : "denied"} this
+                  </span>
+                  <input
+                    className="approval-input"
+                    autoFocus
+                    placeholder="Your name"
+                    value={approver}
+                    onChange={(e) => setApprover(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && submitDecision()}
+                  />
+                  <input
+                    className="approval-input"
+                    placeholder="Reason (optional)"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && submitDecision()}
+                  />
+                  <div className="approval-row">
+                    <button
+                      className="approve-btn approve-btn--yes"
+                      disabled={!approver.trim()}
+                      onClick={submitDecision}
+                    >
+                      Confirm {signing.decision}
+                    </button>
+                    <button className="approve-btn" onClick={() => setSigning(null)}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
               {isOpen && (

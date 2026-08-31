@@ -15,6 +15,7 @@ import queue
 import urllib.parse
 import threading
 import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import config, orchestrator, telemetry
@@ -36,12 +37,12 @@ LIVE_AGENT = os.environ.get("FLEET_LIVE_AGENT", "").lower() in ("1", "true", "ye
 # The live path is far slower and costs per report, so it walks only the five demo
 # fixtures and waits longer between them. The deterministic path can afford the lot.
 LIVE_AGENT_INTERVAL_SECONDS = 25
+# The two reports that carry the whole story, per docs/DEMO.md beat 3: the injection
+# Model Armor intercepts, and the escalation that parks for a human. At ~25s a report
+# these two fit an unbroken take; five do not.
 LIVE_AGENT_REPORTS = (
-    "EXP-2026-0001",
-    "EXP-2026-0002",
-    "EXP-2026-0003",
-    "EXP-2026-0004",
-    "EXP-2026-0005",
+    "EXP-2026-0004",  # injection -> blocked, red on the radar
+    "EXP-2026-0005",  # $6,200 no pre-approval -> parks awaiting a manager
 )
 
 _pending = {}
@@ -71,6 +72,43 @@ def reviewer():
 def park(report_id, result):
     with _pending_lock:
         _pending[report_id] = result
+
+
+def pending_backlog():
+    """Synthetic span_end payloads for reports already parked.
+
+    A parked report is reviewed once and then skipped forever, so a radar that
+    connects *after* it parked never sees its spans and never renders its
+    Approve/Deny row — the escalation is stuck server-side and invisible. That
+    depends on the order the server and the browser happened to start in, which is a
+    miserable thing for a demo to depend on.
+
+    So a client gets the backlog on connect. These carry the same verdict and summary
+    the real run produced; they are a replay of state, not a second review.
+    """
+    with _pending_lock:
+        parked = list(_pending.items())
+    backlog = []
+    now = int(time.time() * 1000)
+    for report_id, result in parked:
+        backlog.append({
+            "trace_id": uuid.uuid4().hex,
+            "span_id": uuid.uuid4().hex[:16],
+            "parent_id": None,
+            "name": "invoke_agent",
+            "agent": "orchestrator",
+            "report_id": report_id,
+            "start_ms": now,
+            "end_ms": now,
+            "status": "OK",
+            "attributes": {
+                "verdict": result.get("verdict", "escalated"),
+                "violations": list(result.get("violations") or []),
+                "summary": result.get("summary", ""),
+                "replayed": True,
+            },
+        })
+    return backlog
 
 
 def resolve_pending(report_id, decision, approver=None, reason=None):
@@ -210,6 +248,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(b": connected\n\n")
+        self.wfile.flush()
+
+        # Anything already parked, before the live stream starts.
+        for payload in pending_backlog():
+            chunk = f"event: span_end\ndata: {json.dumps(payload)}\n\n"
+            self.wfile.write(chunk.encode("utf-8"))
         self.wfile.flush()
 
         q = telemetry.subscribe()
