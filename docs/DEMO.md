@@ -59,6 +59,10 @@ Then:
 
 ---
 
+> **Just want the words?** [`SCRIPT.md`](SCRIPT.md) is the speaking script — what is
+> on screen and what to say, line by line, timed. Read from that; this page is the
+> operational half.
+
 > **Not the person who built the backend?** Read [`SOHAN-BRIEF.md`](SOHAN-BRIEF.md)
 > first. It covers the Google Cloud access question (two of these six beats need it),
 > the setup in order, and enough of how the system works to speak about it rather than

@@ -600,6 +600,7 @@ scripts/
 evals/
   eval_set.json        # expected verdict per fixture
 docs/
+  SCRIPT.md            # the speaking script — what's on screen, what to say, timed
   SOHAN-BRIEF.md       # setup + how the system works, for whoever narrates the video
   REVIEW.md            # the system read by five different reviewers, with repros
   SUBMISSION.md        # checklist against the official rules + scoring analysis
