@@ -600,6 +600,7 @@ scripts/
 evals/
   eval_set.json        # expected verdict per fixture
 docs/
+  SOHAN-BRIEF.md       # setup + how the system works, for whoever narrates the video
   REVIEW.md            # the system read by five different reviewers, with repros
   SUBMISSION.md        # checklist against the official rules + scoring analysis
   DEMO.md              # 4-minute video shot list, narration, timings

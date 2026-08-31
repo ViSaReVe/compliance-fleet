@@ -59,6 +59,11 @@ Then:
 
 ---
 
+> **Not the person who built the backend?** Read [`SOHAN-BRIEF.md`](SOHAN-BRIEF.md)
+> first. It covers the Google Cloud access question (two of these six beats need it),
+> the setup in order, and enough of how the system works to speak about it rather than
+> read from this page.
+
 ## Recording setup
 
 Nothing to install. macOS has what you need.
