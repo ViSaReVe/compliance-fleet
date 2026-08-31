@@ -37,7 +37,7 @@ Runtime, Agent Identity, Memory Bank, Model Armor, and Agent Observability.
 >
 > `eval_claims --deployed` runs the adversarial cases through the real agents: 50/50.
 >
-> **Read [`docs/EVALUATION.md`](docs/EVALUATION.md) and [`docs/REVIEW.md`](docs/REVIEW.md) before the code.**
+> **Read [`docs/EVALUATION.md`](docs/EVALUATION.md) and [`docs/REVIEW.md`](docs/REVIEW.md) before the code** ([docs index](docs/README.md))**.**
 > They record four vulnerabilities found by attacking this system rather than
 > describing it — an $840 expense approved with no receipt on the strength of one
 > sentence, an injection that worked in the receipt text but not the description, a

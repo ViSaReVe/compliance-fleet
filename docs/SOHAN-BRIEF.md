@@ -10,8 +10,8 @@ part `DEMO.md` assumes you already know.**
 
 ## Blocker: two of the six beats need Google Cloud, and you are not on it
 
-That was deliberate — the credits are on Vidya's `vvenna@usc.edu` account and the
-project sits inside the `usc.edu` organisation. It is now the one thing standing
+That was deliberate — the credits sit on a university Google account and the
+project lives inside a `usc.edu` organisation. It is now the one thing standing
 between you and a recording.
 
 | Beat | Needs Google Cloud? |

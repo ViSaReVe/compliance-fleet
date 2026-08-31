@@ -16,10 +16,10 @@ The GEAP surface is verified and written down; do not re-research it.
 | :--- | :--- |
 | Repo | `github.com/ViSaReVe/compliance-fleet` (private) |
 | Collaborator | `Sohan-5` — GitHub only, deliberately not on GCP |
-| GCP project | `nice-hangar-506120-t5` (number `28048016313`) |
-| Organization | `usc.edu` = `794027733634` |
-| Google account | `vvenna@usc.edu` — credits live here, not the personal gmail |
-| Billing | `01F4BE-456C5D-7D4754`, budget `hackathon-guard` at $100 |
+| GCP project | `nice-hangar-506120-t5` |
+| Organization | a `usc.edu` org — matters because org policy shapes IAM, see the notes below |
+| Google account | the university account holding the hackathon credits — not the personal one |
+| Billing | budget `hackathon-guard`, capped at $100 |
 | Memory Bank | agent engine `6748861195161174016` |
 | **Deployed fleet** | **reasoning engine `4324482036380205056`** |
 | Security SA | `fleet-security@nice-hangar-506120-t5.iam.gserviceaccount.com` |
