@@ -5,7 +5,7 @@ import ScenarioPicker from "./components/ScenarioPicker";
 import Legend from "./components/Legend";
 import { useTracePlayer } from "./lib/useTracePlayer";
 import { useLiveTraceStream } from "./lib/useLiveTraceStream";
-import { BACKEND_URL } from "./lib/config";
+import { BACKEND_URL, DEMO_ONLY } from "./lib/config";
 import "./App.css";
 
 const EVENTS_URL = `${BACKEND_URL}/events`;
@@ -35,13 +35,21 @@ export default function App() {
         >
           Replay (mock)
         </button>
-        <button
-          className={`mode-btn ${mode === "live" ? "mode-btn--active" : ""}`}
-          onClick={() => setMode("live")}
-          title="Stream real spans from the backend at localhost:8000/events."
-        >
-          Live (/events)
-        </button>
+        {!DEMO_ONLY && (
+          <button
+            className={`mode-btn ${mode === "live" ? "mode-btn--active" : ""}`}
+            onClick={() => setMode("live")}
+            title="Stream real spans from the backend at localhost:8000/events."
+          >
+            Live (/events)
+          </button>
+        )}
+        {DEMO_ONLY && (
+          <span className="mode-note">
+            Replaying recorded scenarios. The live feed streams from the fleet running
+            against Agent Runtime — see the demo video.
+          </span>
+        )}
         {mode === "live" && (
           <span className={`live-status ${live.connected ? "live-status--on" : ""}`}>
             {live.connected ? "connected" : "connecting…"}

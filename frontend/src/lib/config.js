@@ -10,3 +10,9 @@
 export const BACKEND_URL = (
   import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"
 ).replace(/\/$/, "");
+
+// A hosted build has no backend to stream from — the fleet runs on the recorder's
+// machine, not next to the static files. Offering a Live toggle there just lets a
+// judge click into a dead "connecting…" state, so the build hides it.
+// Set VITE_DEMO_ONLY=1 when building for hosting.
+export const DEMO_ONLY = import.meta.env.VITE_DEMO_ONLY === "1";

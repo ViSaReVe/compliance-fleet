@@ -97,3 +97,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+.mode-note {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 46ch;
+  line-height: 1.4;
+}
