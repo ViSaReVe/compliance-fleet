@@ -49,9 +49,17 @@ own docs class those as *extended* syntax with the caveat that "not all Markdown
 applications support these elements", and a submission is a bad place to find out.
 Devpost's form hint uses `## Headline`, so the sections are H2 and there is no H1.
 
-~1,040 words. It covers the four things the rules ask for by name — features and
-functionality, technologies used, other data sources, and findings and learnings —
-and leads on the finding rather than the architecture.
+It uses **Devpost's own seven-heading template** — Inspiration, What it does, How we
+built it, Challenges we ran into, Accomplishments that we're proud of, What we
+learned, What's next — with no headings added or dropped. That is the shape a judge
+expects, and a story that answers the prompts in order is easier to score than one
+that reorganises them.
+
+~1,300 words. The four things the rules ask for by name are all present: features and
+functionality (*What it does*), technologies used (*How we built it*), other data
+sources (*How we built it*, stated as none — synthetic fixtures), and findings and
+learnings (*Challenges*, *Accomplishments* and *What we learned*, which between them
+carry the real story).
 
 **After pasting, use Devpost's preview** to confirm the blockquotes and headings
 rendered before you submit.
