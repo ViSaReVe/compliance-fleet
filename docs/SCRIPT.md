@@ -19,6 +19,57 @@ Three notes before you start:
 
 ---
 
+## Screen map — set all of this up BEFORE you hit record
+
+Nothing should be typed into a URL bar on camera. Pre-open everything, then move
+between shots with **⌘1 / ⌘2 / ⌘3** (Chrome selects tabs by number).
+
+**Browser — three tabs, in this order:**
+
+| ⌘ | Tab | URL |
+| :-- | :--- | :--- |
+| **⌘1** | Radar | `http://localhost:5173` |
+| **⌘2** | Agent Engine | Console → search bar → type **"Agent Engine"** → open it, then click engine `4324482036380205056` |
+| **⌘3** | API dashboard | `https://console.cloud.google.com/apis/dashboard?project=nice-hangar-506120-t5` |
+
+Optional fourth tab, only if it has data:
+`https://console.cloud.google.com/traces/explorer?project=nice-hangar-506120-t5`
+
+> The Agent Engine console path has moved around between GEAP releases, so use the
+> Console search bar rather than a memorised URL — and **open it during pre-flight**,
+> not on camera. Make sure the project selector says `nice-hangar-506120-t5`.
+
+**Editor — two files open in tabs:**
+
+- `backend/fixtures/reports/EXP-2026-0004.json` — beat 1
+- `backend/policies/rules.yaml` — beat 5
+
+**Image viewer:** `docs/architecture.png` — beats 2 and 6.
+
+**Terminal — two tabs:**
+
+- one running `FLEET_LIVE_AGENT=1 python -m fleet.server` (started on camera at beat 3)
+- one sitting in `backend/` with the venv active, ready for
+  `python -m fleet.verify_deployed` at beat 4
+
+---
+
+## Shot order, start to finish
+
+| Beat | What is on screen | Where it lives |
+| :--- | :--- | :--- |
+| 1 · 0:00 | the injection sitting in a real report | editor — `EXP-2026-0004.json` |
+| 2 · 0:27 | architecture diagram | `docs/architecture.png` |
+| 3 · 0:47 | radar, live, agents working | **⌘1** + terminal in frame |
+| 4 · 2:05 | `verify_deployed` running | terminal |
+| 4 | the deployed engine | **⌘2** |
+| 4 | every API firing, zero errors | **⌘3** |
+| 4 | *(optional)* a trace | ⌘4 |
+| 5 · 3:00 | the rule file, and the evals | editor + terminal |
+| 6 · 3:33 | diagram or radar | back to the image, or **⌘1** |
+
+---
+
 ## Beat 1 · the friction — 0:00
 
 **Screen:** `backend/fixtures/reports/EXP-2026-0004.json`, description line highlighted.
