@@ -255,15 +255,25 @@ PASS lines land on screen.
 > auto-registered in Agent Registry, framework detected as `google-adk`. That's
 > "cataloged for cross-department use", satisfied by actually using it.
 
-**Shot C — Cloud Trace**, a recent trace expanded to show `invoke_agent` and its
-`execute_tool` children.
+**Shot C — Cloud Trace** *(optional — check it first, see below)*, a recent trace
+expanded to show `invoke_agent` and its `execute_tool` children.
 
 > And the spans in Cloud Trace. Same spans the radar just drew: one SpanProcessor,
 > two sinks, no second instrumentation path that can drift.
 
-> **Cloud Trace lags.** Ingestion takes minutes and the v1 list API lags further.
-> Generate the traces *before* you start recording, and confirm they're visible in
-> the Trace explorer during pre-flight. A blank Trace page on camera is fatal.
+> **Shot C is optional, and you must check it before committing to it.** Open the
+> Trace Explorer in the Console during pre-flight and confirm spans are actually
+> visible. Spans are exported over OTLP to `telemetry.googleapis.com` and the
+> exporter reports success, but the deprecated `cloudtrace.v1 traces.list` API
+> returns nothing for them, so we cannot confirm from the command line what the
+> Console will show.
+>
+> **If the Trace Explorer is empty, cut shot C and move on.** The rule is *"must
+> demonstrate the backend is running on Google Cloud (ie: Google Cloud Console,
+> Cloud Run dashboard, Vertex AI logs, URL of .run, etc)"* — the Console page for
+> reasoning engine `4324482036380205056`, plus `verify_deployed` executing live
+> against it, satisfies that on its own. Cloud Trace is a bonus shot, not the
+> requirement. Do not debug telemetry on camera.
 
 ---
 
@@ -309,6 +319,7 @@ Hard cut. No outro card, no music sting, no thanks-for-watching.
 | `verify_deployed` fails on injection | Almost certainly expired ADC, not a broken deploy. `gcloud auth application-default login`, then re-run. |
 | Nothing in Cloud Trace | Ingestion lag. Do not re-debug the exporter on camera — this is why you generate traces during pre-flight. |
 | Escalated report won't Approve | It was already resolved this session. Restart `fleet.server` to re-park it. |
+| The $6,200 report doesn't park | Measured ~8 of 9 runs park. The agent occasionally does not call `request_manager_approval` — LLMs are inconsistent at rule-following, which is why the rules live in code. **The demo is safe either way:** the deterministic layer still returns `escalated` on `OVER_LIMIT_NO_PREAPPROVAL`, and `review_loop` parks on the verdict, so Approve/Deny still appears on the radar. Keep rolling. |
 | A report you don't want appears | Let it pass and keep rolling — **do not cut it out.** Stop narrating, let it scroll past, pick up at the next one. An edge-case fixture on screen costs nothing; a visible edit inside the execution take costs the "unedited, live execution" line. |
 | `EXP-2026-0001` missing from the trail | Expected — the SSE reconnect costs the first slot. Narrate four scenarios, as scripted. |
 
