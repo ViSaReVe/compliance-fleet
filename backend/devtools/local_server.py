@@ -19,10 +19,12 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from agent_gateway import GatewayDenied, gateway_call
-from decision import compliance_decide, screen
+import agent_gateway
+import agent_identity
+import agent_registry
+import agents
+import security_demos
 from rule_engine import summarize
-from rules_loader import load_rules
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIXTURES_DIR = os.path.join(REPO_ROOT, "backend", "fixtures", "reports")
@@ -93,7 +95,7 @@ def span_end(started, status="OK", attributes=None):
     broadcast("span_end", started)
 
 
-def orchestrate(report, rules):
+def orchestrate(report):
     trace_id = uuid.uuid4().hex
     root_id = uuid.uuid4().hex
     report_id = report["report_id"]
@@ -103,15 +105,26 @@ def orchestrate(report, rules):
     screen_id = uuid.uuid4().hex
     screen_span = span_start(trace_id, screen_id, root_id, "execute_tool", "screening", report_id)
     time.sleep(0.25)
-    # Routed through the gateway like every inter-agent call — see agent_gateway.py.
-    violations = gateway_call("orchestrator", "screening.check_policy", screen, report, rules)
+    # The Orchestrator holds its own identity and asks the gateway for a capability by
+    # name — the registry decides who serves it, the token's scopes decide whether the
+    # call is allowed. See agent_gateway.py / agent_registry.py / agent_identity.py.
+    token = agent_identity.issue_token("orchestrator")
+    violations = agent_gateway.invoke(token, "screening.check_policy", report)
     summary_so_far = summarize(report, violations)
-    span_end(screen_span, attributes={"violations": violations, "summary": summary_so_far})
+    span_end(
+        screen_span,
+        attributes={
+            "violations": violations,
+            "summary": summary_so_far,
+            "identity": agent_identity.spiffe_id("screening"),
+        },
+    )
 
     pii_id = uuid.uuid4().hex
     pii_span = span_start(trace_id, pii_id, root_id, "execute_tool", "pii_compliance", report_id)
     time.sleep(0.25)
-    result = gateway_call("orchestrator", "pii_compliance.decide", compliance_decide, report, violations)
+    result = agent_gateway.invoke(token, "pii_compliance.decide", report, violations)
+    identity = agent_identity.spiffe_id("pii_compliance")
 
     if result["verdict"] == "blocked":
         span_end(
@@ -121,6 +134,7 @@ def orchestrate(report, rules):
                 "verdict": "blocked",
                 "armor_verdict": result["armor_verdict"],
                 "summary": result["summary"],
+                "identity": identity,
             },
         )
     else:
@@ -130,6 +144,7 @@ def orchestrate(report, rules):
                 "verdict": result["verdict"],
                 "dlp_redactions": result["dlp_redactions"],
                 "summary": result["summary"],
+                "identity": identity,
             },
         )
 
@@ -183,50 +198,55 @@ def resolve_pending(report_id, decision_label):
     return True
 
 
-def run_denied_access_demo():
-    """Proves the README's Agent Gateway / Identity claim for real: the Screening
-    Agent has no route to the pii_compliance capability except through the
-    Orchestrator. Here it tries to call it directly, and the gateway actually
-    refuses — this is not a documented rule, it's an enforced one. Reuses the
-    existing "BLOCKED" status (the trace contract's status enum is OK|BLOCKED|ERROR)
-    with a denial_reason attribute, so the radar's existing red-blip handling
-    covers this without any new status value.
+def run_denied_access_demo(scenario):
+    """Streams one gateway attack to the radar. The call is real: a genuine token (or a
+    forged/expired one) goes to agent_gateway.invoke(), and the BLOCKED span carries the
+    reason the gateway actually returned — not a canned string. The trace contract's
+    status enum is OK|BLOCKED|ERROR, so a denial reuses BLOCKED with a denial_reason
+    attribute and the radar's existing red-blip handling covers it.
     """
     trace_id = uuid.uuid4().hex
     span_id = uuid.uuid4().hex
-    report_id = "SECURITY-DEMO-GATEWAY"
 
-    span = span_start(trace_id, span_id, None, "execute_tool", "screening", report_id)
+    span = span_start(trace_id, span_id, None, "execute_tool", scenario["agent"], scenario["id"])
     time.sleep(0.15)
-    try:
-        gateway_call("screening", "pii_compliance.decide", compliance_decide, {}, [])
-        span_end(span, attributes={"summary": "Unexpected: gateway allowed an unauthorized call."})
-    except GatewayDenied as denied:
-        span_end(
-            span,
-            status="BLOCKED",
-            attributes={
-                "denial_reason": "GATEWAY_ACCESS_DENIED",
-                "summary": f"Agent Gateway refused: {denied.caller} is not authorized to call {denied.capability}.",
-            },
-        )
+    denied = security_demos.attempt(scenario)
+    if denied is None:
+        span_end(span, status="ERROR", attributes={"summary": "Gateway let an unauthorized call through."})
+        return
+    span_end(
+        span,
+        status="BLOCKED",
+        attributes={
+            "denial_reason": denied.reason,
+            "claim": scenario["claim"],
+            "identity": agent_identity.spiffe_id(scenario["agent"]),
+            "summary": f"Agent Gateway refused ({denied.reason}): {denied.caller} -> {denied.capability}. {scenario['claim']}.",
+        },
+    )
 
 
 def run_loop():
-    rules = load_rules(RULES_PATH)
     reports = load_fixtures()
     if not reports:
         print(f"No fixtures found in {FIXTURES_DIR}")
         return
     i = 0
+    cycle = 0
     while True:
-        report = reports[i % len(reports)]
-        with pending_lock:
-            already_pending = report["report_id"] in pending_approvals
-        if not already_pending:
-            orchestrate(report, rules)
-        if i % len(reports) == 2:
-            run_denied_access_demo()
+        try:
+            report = reports[i % len(reports)]
+            with pending_lock:
+                already_pending = report["report_id"] in pending_approvals
+            if not already_pending:
+                orchestrate(report)
+            if i % len(reports) == 2:
+                # One attack per pass, rotating, so the audit trail stays readable.
+                scenarios = security_demos.SCENARIOS
+                run_denied_access_demo(scenarios[cycle % len(scenarios)])
+                cycle += 1
+        except Exception as exc:  # noqa: BLE001 - a bad report must not kill the stream
+            print(f"[local_server] iteration failed: {exc!r}")
         i += 1
         time.sleep(GAP_BETWEEN_REPORTS_S)
 
@@ -244,6 +264,14 @@ class EventsHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/events":
             self._stream_events()
+            return
+
+        if self.path == "/registry":
+            self._json(200, {"agents": agent_registry.list_agents(), "capabilities": agent_registry.list_capabilities()})
+            return
+
+        if self.path == "/gateway/audit":
+            self._json(200, {"decisions": agent_gateway.audit_log()})
             return
 
         if self.path == "/pending":
@@ -294,6 +322,7 @@ class EventsHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    agents.bootstrap(RULES_PATH)  # provision before the first request, not inside the loop thread
     threading.Thread(target=run_loop, daemon=True).start()
     server = ThreadingHTTPServer(("localhost", PORT), EventsHandler)
     print(f"Local reference /events server on http://localhost:{PORT}/events")

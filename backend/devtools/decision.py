@@ -13,11 +13,14 @@ def screen(report, rules):
     return check_policy(report, rules)
 
 
-def compliance_decide(report, violations):
+def compliance_decide(report, violations, redactor=redact):
     """The pii_compliance.decide capability — injection check, redaction, verdict.
     Deliberately takes already-computed violations rather than rules/report alone,
     so it has no access to raw policy thresholds — mirrors the README's "PII Agent
     cannot modify policy rules" boundary even in this local stand-in.
+
+    `redactor` is injectable so agents.py can route redaction through the gateway
+    under the pii:redact scope; the default keeps run_eval.py calling it directly.
     """
     if detect_injection(report.get("description")):
         return {
@@ -29,7 +32,7 @@ def compliance_decide(report, violations):
         }
 
     combined_text = " ".join(filter(None, [report.get("receipt_ocr_text"), report.get("description")]))
-    _, redaction_count = redact(combined_text)
+    _, redaction_count = redactor(combined_text)
 
     if "OVER_LIMIT_NO_PREAPPROVAL" in violations:
         verdict = "escalated"
