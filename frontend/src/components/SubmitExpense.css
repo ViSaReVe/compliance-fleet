@@ -1,0 +1,133 @@
+.submit {
+  background: #0b1614;
+  border: 1px solid #1f3a30;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.submit-toggle {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: 0;
+  color: #d1fae5;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.submit-toggle:hover {
+  background: #102420;
+}
+
+.submit-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b8f7e;
+}
+
+.submit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 16px 16px;
+  border-top: 1px solid #142a21;
+}
+
+.submit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.submit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #6b8f7e;
+  min-width: 0;
+}
+
+.submit-field input,
+.submit-field select,
+.submit-field textarea {
+  background: #102420;
+  border: 1px solid #1f3a30;
+  border-radius: 6px;
+  color: #e5e7eb;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 9px;
+  min-width: 0;
+  resize: vertical;
+}
+
+.submit-field input:focus,
+.submit-field select:focus,
+.submit-field textarea:focus {
+  outline: none;
+  border-color: #34d399;
+}
+
+.submit-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 12px;
+  color: #a8d5c2;
+}
+
+.submit-checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.submit-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.submit-btn {
+  background: #16362a;
+  border: 1px solid #34d399;
+  color: #34d399;
+  border-radius: 999px;
+  padding: 6px 18px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #1d4a38;
+}
+
+.submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.submit-msg {
+  font-size: 12px;
+}
+
+.submit-msg--ok {
+  color: #34d399;
+}
+
+.submit-msg--err {
+  color: #f87171;
+}

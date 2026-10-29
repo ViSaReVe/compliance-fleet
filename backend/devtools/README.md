@@ -38,6 +38,14 @@ python backend/devtools/run_security_checks.py   # 18 checks, no GCP, no cost
 
 `GET /registry` and `GET /gateway/audit` expose the catalog and the decision log.
 
+**Manual submission.** `POST /submit` takes a JSON expense (amount, category, merchant,
+description, receipt/pre-approval flags) and streams its review to the radar like any
+fixture. The report id is assigned by the server (`EXP-MANUAL-####`) and a client-supplied
+one is ignored — a submitter-chosen id is the spoofing hole `docs/REVIEW.md` reproduces.
+Amounts, field lengths and body size are validated. The radar's "Submit an expense" panel
+(Live mode only) drives it. `POST /approve/<id>?approver=&reason=` and `/deny/` now work
+here too, matching the real fleet server, so "who and why" is recorded locally as well.
+
 **What this is not:** the identity here is a signed token, not an mTLS-bound SPIFFE
 certificate, and the gateway is a function, not a managed IAP-enforced service. It
 proves the *design* — least scope, lookup by capability, refusal with a reason — not

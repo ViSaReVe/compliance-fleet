@@ -3,6 +3,7 @@ import RadarCanvas from "./components/RadarCanvas";
 import AuditDrawer from "./components/AuditDrawer";
 import ScenarioPicker from "./components/ScenarioPicker";
 import Legend from "./components/Legend";
+import SubmitExpense from "./components/SubmitExpense";
 import { useTracePlayer } from "./lib/useTracePlayer";
 import { useLiveTraceStream } from "./lib/useLiveTraceStream";
 import { BACKEND_URL, DEMO_ONLY } from "./lib/config";
@@ -64,7 +65,10 @@ export default function App() {
           <RadarCanvas activeSpans={feed.activeSpans} blip={feed.blip} />
           <Legend />
         </div>
-        <AuditDrawer completedSpans={feed.completedSpans} mode={mode} />
+        <div className="side-column">
+          {mode === "live" && !DEMO_ONLY && <SubmitExpense />}
+          <AuditDrawer completedSpans={feed.completedSpans} mode={mode} />
+        </div>
       </main>
     </div>
   );

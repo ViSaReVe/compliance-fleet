@@ -11,12 +11,14 @@ Then point the frontend's Live mode at http://localhost:8000/events (same URL th
 frontend already expects — see frontend/src/App.jsx EVENTS_URL).
 """
 
+import itertools
 import json
 import os
 import queue
 import threading
 import time
 import uuid
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import agent_gateway
@@ -164,7 +166,7 @@ def orchestrate(report):
     span_end(root)
 
 
-def resolve_pending(report_id, decision_label):
+def resolve_pending(report_id, decision_label, approver=None, reason=None):
     with pending_lock:
         entry = pending_approvals.pop(report_id, None)
     if entry is None:
@@ -179,7 +181,11 @@ def resolve_pending(report_id, decision_label):
         resume_span,
         attributes={
             "manager_decision": decision_label,
-            "summary": f"Manager {decision_label} after review — run resumed.",
+            **({"approver": approver} if approver else {}),
+            **({"decision_reason": reason} if reason else {}),
+            "summary": f"{approver or 'Manager'} {decision_label}"
+            + (f" — {reason}" if reason else " after review")
+            + ". Run resumed.",
         },
     )
 
@@ -251,6 +257,55 @@ def run_loop():
         time.sleep(GAP_BETWEEN_REPORTS_S)
 
 
+MAX_BODY_BYTES = 20_000
+MAX_FIELD_CHARS = 2_000
+_manual_ids = itertools.count(1)
+
+
+class SubmissionError(ValueError):
+    pass
+
+
+def build_manual_report(payload):
+    """Turn a submitted form into a report, or raise SubmissionError.
+
+    The report id is assigned here, never accepted from the submitter. Taking it from
+    the form would let someone claim an id that already has a receipt on file — the
+    id-spoofing hole docs/REVIEW.md reproduces against the real fleet.
+    """
+    if not isinstance(payload, dict):
+        raise SubmissionError("expected a JSON object")
+
+    amount = payload.get("amount_usd")
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not 0 < amount <= 1_000_000:
+        raise SubmissionError("amount_usd must be a number between 0 and 1,000,000")
+
+    def text(key, required=False):
+        value = payload.get(key)
+        if value is None or value == "":
+            if required:
+                raise SubmissionError(f"{key} is required")
+            return None
+        if not isinstance(value, str):
+            raise SubmissionError(f"{key} must be text")
+        if len(value) > MAX_FIELD_CHARS:
+            raise SubmissionError(f"{key} is longer than {MAX_FIELD_CHARS} characters")
+        return value.strip()
+
+    return {
+        "report_id": f"EXP-MANUAL-{next(_manual_ids):04d}",
+        "submitted_by": "manual_entry",
+        "amount_usd": round(float(amount), 2),
+        "category": text("category", required=True),
+        "merchant": text("merchant"),
+        "expense_date": text("expense_date"),
+        "description": text("description"),
+        "receipt_attached": bool(payload.get("receipt_attached")),
+        "receipt_ocr_text": text("receipt_ocr_text"),
+        "requested_preapproval": bool(payload.get("requested_preapproval")),
+    }
+
+
 class EventsHandler(BaseHTTPRequestHandler):
     def _json(self, status, payload):
         body = json.dumps(payload).encode("utf-8")
@@ -260,6 +315,48 @@ class EventsHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_POST(self):
+        path, _, query = self.path.partition("?")
+
+        if path == "/submit":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                if length > MAX_BODY_BYTES:
+                    raise SubmissionError("request body too large")
+                report = build_manual_report(json.loads(self.rfile.read(length) or b"null"))
+            except (SubmissionError, ValueError) as err:
+                self._json(400, {"ok": False, "error": str(err)})
+                return
+            # Own thread so the submitter gets an answer now and the review streams to
+            # the radar as it happens, independent of the fixture loop.
+            threading.Thread(target=orchestrate, args=(report,), daemon=True).start()
+            self._json(202, {"ok": True, "report_id": report["report_id"]})
+            return
+
+        for prefix, label in (("/approve/", "approved"), ("/deny/", "denied")):
+            if path.startswith(prefix):
+                params = urllib.parse.parse_qs(query)
+                report_id = path[len(prefix):]
+                if resolve_pending(
+                    report_id,
+                    label,
+                    approver=(params.get("approver") or [None])[0],
+                    reason=(params.get("reason") or [None])[0],
+                ):
+                    self._json(200, {"ok": True, "report_id": report_id, "decision": label})
+                else:
+                    self._json(404, {"ok": False, "error": f"{report_id} is not pending approval"})
+                return
+
+        self._json(404, {"ok": False, "error": "not found"})
 
     def do_GET(self):
         if self.path == "/events":
