@@ -14,6 +14,7 @@ works for the other, which is what the denial demos in security_demos.py prove.
 import agent_gateway
 import agent_identity
 import agent_registry
+import payouts
 from decision import compliance_decide, screen
 from pii_scan import redact
 from rules_loader import load_rules
@@ -22,14 +23,25 @@ from rules_loader import load_rules
 def bootstrap(rules_path):
     agent_registry.reset()
 
+    payouts.reset()
+
+    # Risk levels say how much damage a wrong action does, which is what an operator
+    # needs to see before deciding how closely to watch an agent.
     agent_registry.register_agent(
-        "orchestrator", "Sequences the review: resolves agents from the registry and calls them through the gateway."
+        "orchestrator",
+        "Sequences the review: resolves agents from the registry and calls them through the gateway.",
+        risk_level="MEDIUM",
     )
     agent_registry.register_agent(
-        "screening", "Checks an expense report against policy rules and returns violations."
+        "screening", "Checks an expense report against policy rules and returns violations.", risk_level="LOW"
     )
     agent_registry.register_agent(
-        "pii_compliance", "Screens for injection, redacts PII, and issues the final verdict."
+        "pii_compliance", "Screens for injection, redacts PII, and issues the final verdict.", risk_level="HIGH"
+    )
+    agent_registry.register_agent(
+        "reimbursement",
+        "Drafts and settles the payout for an approved expense. The only agent that can move money.",
+        risk_level="CRITICAL",
     )
 
     def read_policy():
@@ -69,6 +81,31 @@ def bootstrap(rules_path):
     )
     agent_registry.register_capability(
         "pii.redact", owner="pii_compliance", scope="pii:redact", handler=redact, kind="tool",
+    )
+
+    # --- the payout pipeline ----------------------------------------------------
+    def draft_payout(report):
+        return payouts.draft(report)
+
+    def settle_payout(payout_id):
+        # The reimbursement agent reaches the ledger as itself, with its own scope —
+        # the orchestrator never holds payout:execute, so it cannot pay anyone directly.
+        token = agent_identity.issue_token("reimbursement")
+        return agent_gateway.invoke(token, "payout.execute", payout_id)
+
+    agent_registry.register_capability(
+        "reimbursement.draft", owner="reimbursement", scope="invoke:reimbursement",
+        handler=draft_payout, kind="agent_skill",
+    )
+    agent_registry.register_capability(
+        "reimbursement.settle", owner="reimbursement", scope="invoke:reimbursement",
+        handler=settle_payout, kind="agent_skill",
+        # Read from the ledger, not from the caller: see payouts.py.
+        requires_approval=payouts.needs_authorization,
+    )
+    agent_registry.register_capability(
+        "payout.execute", owner="reimbursement", scope="payout:execute",
+        handler=payouts.execute, kind="tool",
     )
 
 

@@ -7,6 +7,7 @@ const AGENTS = {
   ORCH: "orchestrator",
   SCREEN: "screening",
   PII: "pii_compliance",
+  REIMB: "reimbursement",
 };
 
 function span(overrides) {

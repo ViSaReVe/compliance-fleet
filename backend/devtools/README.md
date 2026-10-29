@@ -27,24 +27,44 @@ services, enforced by plain Python instead of Google Cloud:
 | Agent Gateway | `agent_gateway.py` | Every call goes through `invoke()`: verify the token, resolve the capability in the registry, check the scope. Each refusal has its own reason, and every decision is audited. |
 
 `agents.py` provisions all three (`bootstrap`) and runs each agent as its own identity.
-`security_demos.py` holds five attacks, one per refusal reason: wrong scope (two ways),
-forged token, expired token, unregistered capability. The server streams one per pass as
+`security_demos.py` holds eight attacks: wrong scope (two ways), forged token, expired token,
+unregistered capability, the Orchestrator paying directly, a replayed approval, and an approval
+for one payout presented for another. The server streams one per pass as
 a BLOCKED span; `run_security_checks.py` asserts each is refused for the *specific*
 reason, and that routing through the gateway changes no verdict on `evals/eval_set.json`.
 
 ```bash
-python backend/devtools/run_security_checks.py   # 18 checks, no GCP, no cost
+python backend/devtools/run_security_checks.py   # 21 checks
+python backend/devtools/run_payout_checks.py     # 60 checks
+# no GCP, no cost
 ```
 
 `GET /registry` and `GET /gateway/audit` expose the catalog and the decision log.
+
+**Descriptors.** Agent cards carry `risk_level`, `lifecycle`, `health` and `fallback_agent`, plus
+`granted_scopes` kept separate from the skills an agent offers. An unavailable agent is refused
+(`AGENT_UNAVAILABLE`) and the orchestrator routes the report to a human instead of guessing.
+
+**Second pipeline: payouts.** An approved expense is paid by a separate `reimbursement` agent
+(`payouts.py`, state machine `drafted → paid | cancelled`). Payouts over $500 are parked until a
+*named* person authorizes them: the gateway refuses `reimbursement.settle` without a signed,
+single-use approval bound to that one payout. Replaying an event cannot pay twice, and the amount
+that decides whether a person must approve is read from the ledger, never from the caller. The
+radar shows the fourth node, a `payout pending` pill, and an **Authorize** button. A radar that
+connects late is caught up on anything parked.
+
+Design notes: [`docs/decisions/`](../../docs/decisions/) and
+[`docs/COMPLIANCE-MATRIX.md`](../../docs/COMPLIANCE-MATRIX.md).
 
 **Manual submission.** `POST /submit` takes a JSON expense (amount, category, merchant,
 description, receipt/pre-approval flags) and streams its review to the radar like any
 fixture. The report id is assigned by the server (`EXP-MANUAL-####`) and a client-supplied
 one is ignored — a submitter-chosen id is the spoofing hole `docs/REVIEW.md` reproduces.
 Amounts, field lengths and body size are validated. The radar's "Submit an expense" panel
-(Live mode only) drives it. `POST /approve/<id>?approver=&reason=` and `/deny/` now work
-here too, matching the real fleet server, so "who and why" is recorded locally as well.
+(Live mode only) drives it. `POST /approve/<id>?approver=&reason=` and `/deny/` work here too,
+matching the real fleet server, so "who and why" is recorded locally. They are POST-only: a GET
+can be fired by a link prefetcher, and approving a payout is a state change. Authorizing a
+payout with no name returns 400 and leaves it parked.
 
 **What this is not:** the identity here is a signed token, not an mTLS-bound SPIFFE
 certificate, and the gateway is a function, not a managed IAP-enforced service. It

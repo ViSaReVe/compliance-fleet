@@ -210,3 +210,22 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.payout-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+  background: transparent;
+  letter-spacing: 0.02em;
+}
+
+.payout-pill--paid { color: #34d399; border-color: #1f6f4a; }
+.payout-pill--awaiting { color: #60a5fa; border-color: #2b4d7a; }
+.payout-pill--cancelled { color: #9ca3af; border-color: #374151; }

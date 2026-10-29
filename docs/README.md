@@ -9,6 +9,8 @@ Start with the top two. They are where the interesting work is.
 | **[EVALUATION.md](EVALUATION.md)** | We attacked our own system and it approved an $840 expense with no receipt — three runs out of three, on one sentence, with no prompt injection involved. The finding, the reproduction, the architectural fix, the regression gate, and what is still weak. |
 | **[REVIEW.md](REVIEW.md)** | The same codebase read by five different reviewers — a judge, a red teamer, an SRE, the finance reviewer who has to use it, and a staff engineer. Every finding has a command that reproduces it. |
 | **[SYSTEM.md](SYSTEM.md)** | What this system actually is: four layers, each with a different trust level, and why naming them made the vulnerability obvious in hindsight. Positioned against CaMeL, AgentDojo, τ-bench and Anthropic's workflow-vs-agent guidance. |
+| **[COMPLIANCE-MATRIX.md](COMPLIANCE-MATRIX.md)** | Every claim against the track, labelled by how well it is supported: checked locally, claimed-and-deployed, local stand-in, or not done. |
+| **[decisions/](decisions/)** | Short ADRs: why payout is a sibling pipeline, and what the gateway enforces. |
 | **[architecture.png](architecture.png)** | The diagram. Source in [architecture.svg](architecture.svg). |
 
 ## Running it

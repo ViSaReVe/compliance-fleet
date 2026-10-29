@@ -27,10 +27,15 @@ DEFAULT_TTL_S = 60
 
 # agent -> scopes it holds. Anything not listed here is not granted.
 GRANTS = {
-    "orchestrator": {"invoke:screening", "invoke:pii_compliance"},
+    "orchestrator": {"invoke:screening", "invoke:pii_compliance", "invoke:reimbursement"},
     "screening": {"policy:read"},
     "pii_compliance": {"pii:redact"},
+    # Only the reimbursement agent can move money, and even it needs a human's grant
+    # for anything over the authorization threshold — see issue_approval().
+    "reimbursement": {"payout:execute"},
 }
+
+APPROVAL_TTL_S = 300
 
 _SIGNING_KEY = os.urandom(32)
 
@@ -63,6 +68,7 @@ def issue_token(agent, ttl_s=DEFAULT_TTL_S):
         raise IdentityError("UNKNOWN_AGENT", f"no identity is provisioned for {agent!r}")
     now = int(time.time())
     claims = {
+        "typ": "access",
         "sub": spiffe_id(agent),
         "agent": agent,
         "scopes": sorted(GRANTS[agent]),
@@ -74,7 +80,7 @@ def issue_token(agent, ttl_s=DEFAULT_TTL_S):
     return f"{body}.{_sign(body)}"
 
 
-def verify_token(token):
+def _verify(token, typ):
     try:
         body, sig = token.split(".", 1)
     except (AttributeError, ValueError):
@@ -88,8 +94,55 @@ def verify_token(token):
     except (ValueError, UnicodeDecodeError):
         raise IdentityError("MALFORMED_TOKEN", "claims are not valid JSON") from None
 
+    # An approval grant must not pass as an access token, nor the reverse — both are
+    # signed with the same key, so the type is what keeps them apart.
+    if claims.get("typ") != typ:
+        raise IdentityError("WRONG_TOKEN_TYPE", f"expected a {typ} token, got {claims.get('typ')!r}")
+
     if claims.get("exp", 0) < time.time():
-        raise IdentityError("TOKEN_EXPIRED", f"token for {claims.get('agent')!r} is past its expiry")
+        what = f"token for {claims.get('agent')!r}" if typ == "access" else "approval"
+        reason = "TOKEN_EXPIRED" if typ == "access" else "APPROVAL_EXPIRED"
+        raise IdentityError(reason, f"{what} is past its expiry")
+    return claims
+
+
+def verify_token(token):
+    return _verify(token, "access")
+
+
+def issue_approval(capability, subject, approver, reason=None, ttl_s=APPROVAL_TTL_S):
+    """A human's decision, as something the gateway can check.
+
+    Bound to one capability and one subject (the payout, not just "any payout") and
+    to a named approver, so a grant cannot be reused for a different payment or issued
+    anonymously. The gateway additionally treats each grant as single-use. An approval
+    without a name is refused here, because spending money without knowing who said yes
+    is the audit-trail gap docs/REVIEW.md calls disqualifying.
+    """
+    if not approver or not str(approver).strip():
+        raise IdentityError("APPROVER_REQUIRED", "an approval must name who approved it")
+    now = int(time.time())
+    claims = {
+        "typ": "approval",
+        "cap": capability,
+        "sub": subject,
+        "approver": str(approver).strip(),
+        "reason": reason,
+        "iat": now,
+        "exp": now + ttl_s,
+        "jti": uuid.uuid4().hex,
+    }
+    body = _b64(json.dumps(claims, separators=(",", ":")).encode("utf-8"))
+    return f"{body}.{_sign(body)}"
+
+
+def verify_approval(token, capability, subject):
+    claims = _verify(token, "approval")
+    if claims.get("cap") != capability or claims.get("sub") != subject:
+        raise IdentityError(
+            "APPROVAL_MISMATCH",
+            f"approval is for {claims.get('cap')!r} on {claims.get('sub')!r}, not {capability!r} on {subject!r}",
+        )
     return claims
 
 

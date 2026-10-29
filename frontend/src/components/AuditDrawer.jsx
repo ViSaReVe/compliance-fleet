@@ -40,6 +40,17 @@ function violationList(span) {
   return [];
 }
 
+// A payout is its own wait. The expense can be approved while the payout it triggered is
+// still parked on a person, so this is read from the payout's own spans, not the verdict.
+function payoutState(spans) {
+  if (spans.some((s) => s.attributes?.payout_status === "paid")) return "paid";
+  if (spans.some((s) => s.attributes?.payout_status === "cancelled")) return "cancelled";
+  if (spans.some((s) => s.attributes?.awaiting_payout_authorization)) return "awaiting";
+  return null;
+}
+
+const PAYOUT_LABEL = { paid: "paid", cancelled: "payout cancelled", awaiting: "payout pending" };
+
 const VERDICT_CLASS = {
   approved: "verdict--approved",
   flagged: "verdict--flagged",
@@ -122,24 +133,29 @@ export default function AuditDrawer({ completedSpans, mode }) {
         {reportIds.map((id) => {
           const spans = byReport.get(id);
           const verdict = verdictOf(spans);
-          const awaitingApproval = mode === "live" && isAwaitingApproval(spans, verdict);
+          const payout = payoutState(spans);
+          const awaitingPayout = mode === "live" && payout === "awaiting";
+          const awaitingApproval = mode === "live" && (isAwaitingApproval(spans, verdict) || awaitingPayout);
           const isOpen = openReport === id;
           return (
             <li key={id} className={`report-item ${flashId === id ? "report-item--flash" : ""}`}>
               <button className="report-row" onClick={() => setOpenReport(isOpen ? null : id)}>
                 <span className="report-id">{id}</span>
-                <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`} title={VERDICT_HINT[verdict]}>
-                  {verdict}
+                <span className="pills">
+                  <span className={`verdict-pill ${VERDICT_CLASS[verdict]}`} title={VERDICT_HINT[verdict]}>
+                    {verdict}
+                  </span>
+                  {payout && <span className={`payout-pill payout-pill--${payout}`}>{PAYOUT_LABEL[payout]}</span>}
                 </span>
               </button>
               {awaitingApproval && signing?.id !== id && (
                 <div className="approval-row">
-                  <span className="approval-label">Awaiting manager…</span>
+                  <span className="approval-label">{awaitingPayout ? "Payout awaiting authorization…" : "Awaiting manager…"}</span>
                   <button
                     className="approve-btn approve-btn--yes"
                     onClick={() => setSigning({ id, decision: "approve" })}
                   >
-                    Approve
+                    {awaitingPayout ? "Authorize" : "Approve"}
                   </button>
                   <button
                     className="approve-btn approve-btn--no"
@@ -152,7 +168,7 @@ export default function AuditDrawer({ completedSpans, mode }) {
               {awaitingApproval && signing?.id === id && (
                 <div className="approval-sign">
                   <span className="approval-label">
-                    Recording who {signing.decision === "approve" ? "approved" : "denied"} this
+                    Recording who {signing.decision === "approve" ? (awaitingPayout ? "authorized" : "approved") : "denied"} this
                   </span>
                   <input
                     className="approval-input"

@@ -47,7 +47,11 @@ def main():
 
     # --- registry -------------------------------------------------------------
     names = {a["name"] for a in agent_registry.list_agents()}
-    check("registry lists all three agents", names == {"orchestrator", "screening", "pii_compliance"}, str(names))
+    check(
+        "registry lists all four agents",
+        names == {"orchestrator", "screening", "pii_compliance", "reimbursement"},
+        str(names),
+    )
     check(
         "capability resolves to its owning agent, not a hardcoded function",
         agent_registry.resolve("screening.check_policy")["owner"] == "screening",

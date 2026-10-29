@@ -20,6 +20,14 @@ const NODES = {
     label: "PII / Compliance",
     role: "Model Armor screens for injection; Cloud DLP redacts PII; issues the final verdict.",
   },
+  // The second pipeline. Off to the side rather than in the triangle because it is a
+  // different job — paying an approved expense — not another stage of the review.
+  [AGENT_IDS.REIMB]: {
+    x: 520,
+    y: 235,
+    label: "Reimbursement",
+    role: "Drafts and settles the payout for an approved expense. The only agent that can move money, and anything over $500 waits for a named person.",
+  },
 };
 
 function activeAgents(activeSpans) {

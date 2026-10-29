@@ -10,8 +10,11 @@ gateway is a failure of the gateway, not a demo with a surprising ending.
 import base64
 import json
 
+import uuid
+
 import agent_gateway
 import agent_identity
+import payouts
 
 
 def _forge_scope(token, scope):
@@ -21,6 +24,39 @@ def _forge_scope(token, scope):
     claims["scopes"] = sorted(set(claims["scopes"]) | {scope})
     forged = base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=").decode()
     return f"{forged}.{sig}"
+
+
+def _fresh_payout(amount=9000):
+    """A drafted payout big enough to need a human, under an id no earlier run used."""
+    rid = f"DEMO-{uuid.uuid4().hex[:8]}"
+    payouts.draft({"report_id": rid, "amount_usd": amount, "submitted_by": "demo"})
+    return payouts.payout_id_for(rid)
+
+
+def _build_direct_payout():
+    return agent_identity.issue_token("orchestrator"), "payout.execute", (_fresh_payout(),), {}
+
+
+def _build_replayed_approval():
+    """A human approves once, legitimately, and the grant is spent. Presenting it again
+    is the replay the gateway must refuse.
+    """
+    payout_id = _fresh_payout()
+    grant = agent_identity.issue_approval("reimbursement.settle", payout_id, "demo-approver")
+    token = agent_identity.issue_token("orchestrator")
+    agent_gateway.invoke(token, "reimbursement.settle", payout_id, approval=grant, subject=payout_id)
+    return token, "reimbursement.settle", (payout_id,), {"approval": grant, "subject": payout_id}
+
+
+def _build_wrong_payout_approval():
+    approved, target = _fresh_payout(), _fresh_payout()
+    grant = agent_identity.issue_approval("reimbursement.settle", approved, "demo-approver")
+    return (
+        agent_identity.issue_token("orchestrator"),
+        "reimbursement.settle",
+        (target,),
+        {"approval": grant, "subject": target},
+    )
 
 
 SCENARIOS = [
@@ -69,6 +105,30 @@ SCENARIOS = [
         "token": lambda: agent_identity.issue_token("orchestrator"),
         "args": (),
     },
+    {
+        "id": "SECURITY-DEMO-DIRECT-PAYOUT",
+        "claim": "The Orchestrator cannot pay anyone directly",
+        "agent": "orchestrator",
+        "capability": "payout.execute",
+        "expected_reason": "MISSING_SCOPE",
+        "build": _build_direct_payout,
+    },
+    {
+        "id": "SECURITY-DEMO-REPLAYED-APPROVAL",
+        "claim": "A human's approval pays once, not twice",
+        "agent": "orchestrator",
+        "capability": "reimbursement.settle",
+        "expected_reason": "APPROVAL_USED",
+        "build": _build_replayed_approval,
+    },
+    {
+        "id": "SECURITY-DEMO-WRONG-PAYOUT-APPROVAL",
+        "claim": "An approval for one payout cannot release another",
+        "agent": "orchestrator",
+        "capability": "reimbursement.settle",
+        "expected_reason": "APPROVAL_MISMATCH",
+        "build": _build_wrong_payout_approval,
+    },
 ]
 
 
@@ -77,7 +137,11 @@ def attempt(scenario):
     wrongly let it through.
     """
     try:
-        agent_gateway.invoke(scenario["token"](), scenario["capability"], *scenario["args"])
+        if "build" in scenario:
+            token, capability, args, kwargs = scenario["build"]()
+        else:
+            token, capability, args, kwargs = scenario["token"](), scenario["capability"], scenario["args"], {}
+        agent_gateway.invoke(token, capability, *args, **kwargs)
     except agent_gateway.GatewayDenied as denied:
         return denied
     except Exception:  # noqa: BLE001 - the handler ran, which means the gateway let it through

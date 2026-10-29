@@ -25,6 +25,7 @@ import agent_gateway
 import agent_identity
 import agent_registry
 import agents
+import payouts
 import security_demos
 from rule_engine import summarize
 
@@ -43,7 +44,7 @@ clients_lock = threading.Lock()
 # LongRunningFunctionTool (Vidya's Day 5) — this just proves the same shape end-to-end
 # with a manual HTTP call standing in for the manager's response, so the mechanic is
 # de-risked before that real wiring exists.
-pending_approvals = {}  # report_id -> {"trace_id": ..., "root_id": ...}
+pending_approvals = {}  # report_id -> {"kind": "expense"|"payout", "trace_id", "root_id", ...}
 pending_lock = threading.Lock()
 
 
@@ -90,11 +91,159 @@ def span_start(trace_id, span_id, parent_id, name, agent, report_id):
     return s
 
 
+# Spans of traces that are still open, so a radar that connects late can be caught up.
+# Without this a browser opened after a report parked sees only its newest span: a payout
+# awaiting authorization with the verdict reading "pending", because the pii span that
+# carried "approved" streamed before it connected. A trace leaves this table the moment
+# its root span closes, so it holds only what is genuinely parked or in flight.
+_trace_spans = {}
+_trace_lock = threading.Lock()
+
+
+def _remember(span):
+    with _trace_lock:
+        if span["parent_id"] is None:
+            _trace_spans.pop(span["trace_id"], None)
+        else:
+            _trace_spans.setdefault(span["trace_id"], []).append(dict(span))
+
+
+def backlog_frames():
+    """span_end frames for every open trace that is parked on a person."""
+    with pending_lock:
+        trace_ids = [entry["trace_id"] for entry in pending_approvals.values()]
+    with _trace_lock:
+        spans = [sp for tid in trace_ids for sp in _trace_spans.get(tid, [])]
+    return [f"event: span_end\ndata: {json.dumps(sp)}\n\n" for sp in spans]
+
+
 def span_end(started, status="OK", attributes=None):
     started["end_ms"] = now_ms()
     started["status"] = status
     started["attributes"] = attributes or {}
+    _remember(started)
     broadcast("span_end", started)
+
+
+def _park(kind, ctx, **extra):
+    with pending_lock:
+        pending_approvals[ctx["report"]["report_id"]] = {
+            "kind": kind,
+            "trace_id": ctx["trace_id"],
+            "root_id": ctx["root_id"],
+            "start_ms": ctx["start_ms"],
+            "report": ctx["report"],
+            **extra,
+        }
+
+
+def _close_root(ctx, attributes=None):
+    span_end(
+        {
+            "trace_id": ctx["trace_id"],
+            "span_id": ctx["root_id"],
+            "parent_id": None,
+            "name": "invoke_agent",
+            "agent": "orchestrator",
+            "report_id": ctx["report"]["report_id"],
+            "start_ms": ctx["start_ms"],
+            "status": "OK",
+            "attributes": {},
+        },
+        attributes=attributes or {},
+    )
+
+
+def _fail_closed(ctx, stage_span, denied, stage):
+    """An agent the review depends on is not routable. Guessing — approving or rejecting
+    without it — would be a decision nobody made, so the report goes to a person.
+    This is the same stance as EIR's safety gate, which routes a sensitive action to
+    human review when its guardrail is degraded rather than letting it through.
+    """
+    span_end(
+        stage_span,
+        status="BLOCKED",
+        attributes={
+            "denial_reason": denied.reason,
+            "summary": f"{stage} agent is not routable ({denied.reason}). Failing closed.",
+            "identity": agent_identity.spiffe_id(stage),
+        },
+    )
+    esc = span_start(ctx["trace_id"], uuid.uuid4().hex, ctx["root_id"], "execute_tool", "orchestrator", ctx["report"]["report_id"])
+    span_end(
+        esc,
+        attributes={
+            "verdict": "escalated",
+            "violations": ["FLEET_DEGRADED"],
+            "summary": f"The {stage} agent is unavailable, so this report was not reviewed. Routed to a human instead of guessing.",
+        },
+    )
+    _park("expense", ctx)
+
+
+def pay_out(ctx):
+    """Run (or continue) the payout pipeline for an approved expense: draft, then settle.
+
+    Returns "done" when the payout is finished one way or another, or "parked" when it is
+    waiting for a named human to authorize it — in which case the root span stays open
+    and a pending entry of kind "payout" exists. Planning goes through
+    payouts.plan_capability, so calling this twice for one report cannot pay twice.
+    """
+    report = ctx["report"]
+    rid = report["report_id"]
+    token = agent_identity.issue_token("orchestrator")
+    identity = agent_identity.spiffe_id("reimbursement")
+
+    if payouts.plan_capability("ExpenseApproved", rid) == "reimbursement.draft":
+        span = span_start(ctx["trace_id"], uuid.uuid4().hex, ctx["root_id"], "execute_tool", "reimbursement", rid)
+        time.sleep(0.2)
+        case = agent_gateway.invoke(token, "reimbursement.draft", report)
+        span_end(
+            span,
+            attributes={
+                "payout_id": case["payout_id"],
+                "amount_usd": case["amount_usd"],
+                "summary": f"Drafted a ${case['amount_usd']:,.2f} payout to {case['payee']}.",
+                "identity": identity,
+            },
+        )
+
+    if payouts.plan_capability("PayoutDrafted", rid) != "reimbursement.settle":
+        return "done"
+
+    payout_id = payouts.payout_id_for(rid)
+    amount = payouts.get(payout_id)["amount_usd"]
+    span = span_start(ctx["trace_id"], uuid.uuid4().hex, ctx["root_id"], "execute_tool", "reimbursement", rid)
+    time.sleep(0.2)
+    try:
+        result = agent_gateway.invoke(token, "reimbursement.settle", payout_id, subject=payout_id)
+    except agent_gateway.ApprovalRequired:
+        span_end(
+            span,
+            attributes={
+                "awaiting_payout_authorization": True,
+                "payout_id": payout_id,
+                "amount_usd": amount,
+                "summary": (
+                    f"${amount:,.2f} is over the ${payouts.AUTHORIZATION_THRESHOLD_USD} authorization line. "
+                    "Parked until a named person authorizes it."
+                ),
+                "identity": identity,
+            },
+        )
+        _park("payout", ctx, payout_id=payout_id)
+        return "parked"
+    span_end(
+        span,
+        attributes={
+            "payout_status": "paid",
+            "payout_id": payout_id,
+            "amount_usd": result["amount_usd"],
+            "summary": f"Paid ${result['amount_usd']:,.2f} (under the ${payouts.AUTHORIZATION_THRESHOLD_USD} authorization line).",
+            "identity": identity,
+        },
+    )
+    return "done"
 
 
 def orchestrate(report):
@@ -103,29 +252,39 @@ def orchestrate(report):
     report_id = report["report_id"]
 
     root = span_start(trace_id, root_id, None, "invoke_agent", "orchestrator", report_id)
+    ctx = {"trace_id": trace_id, "root_id": root_id, "start_ms": root["start_ms"], "report": report}
 
-    screen_id = uuid.uuid4().hex
-    screen_span = span_start(trace_id, screen_id, root_id, "execute_tool", "screening", report_id)
+    screen_span = span_start(trace_id, uuid.uuid4().hex, root_id, "execute_tool", "screening", report_id)
     time.sleep(0.25)
     # The Orchestrator holds its own identity and asks the gateway for a capability by
     # name — the registry decides who serves it, the token's scopes decide whether the
     # call is allowed. See agent_gateway.py / agent_registry.py / agent_identity.py.
     token = agent_identity.issue_token("orchestrator")
-    violations = agent_gateway.invoke(token, "screening.check_policy", report)
-    summary_so_far = summarize(report, violations)
+    try:
+        violations = agent_gateway.invoke(token, "screening.check_policy", report)
+    except agent_gateway.GatewayDenied as denied:
+        if denied.reason != "AGENT_UNAVAILABLE":
+            raise
+        _fail_closed(ctx, screen_span, denied, "screening")
+        return
     span_end(
         screen_span,
         attributes={
             "violations": violations,
-            "summary": summary_so_far,
+            "summary": summarize(report, violations),
             "identity": agent_identity.spiffe_id("screening"),
         },
     )
 
-    pii_id = uuid.uuid4().hex
-    pii_span = span_start(trace_id, pii_id, root_id, "execute_tool", "pii_compliance", report_id)
+    pii_span = span_start(trace_id, uuid.uuid4().hex, root_id, "execute_tool", "pii_compliance", report_id)
     time.sleep(0.25)
-    result = agent_gateway.invoke(token, "pii_compliance.decide", report, violations)
+    try:
+        result = agent_gateway.invoke(token, "pii_compliance.decide", report, violations)
+    except agent_gateway.GatewayDenied as denied:
+        if denied.reason != "AGENT_UNAVAILABLE":
+            raise
+        _fail_closed(ctx, pii_span, denied, "pii_compliance")
+        return
     identity = agent_identity.spiffe_id("pii_compliance")
 
     if result["verdict"] == "blocked":
@@ -151,56 +310,91 @@ def orchestrate(report):
         )
 
     if result["verdict"] == "escalated":
-        with pending_lock:
-            pending_approvals[report_id] = {
-                "trace_id": trace_id,
-                "root_id": root_id,
-                "start_ms": root["start_ms"],
-            }
         # Root span deliberately stays open (no span_end here) — it represents the
         # run genuinely parked awaiting a manager, not a fixed sleep. resolve_pending()
         # closes it later, whenever /approve or /deny actually gets called.
+        _park("expense", ctx)
+        return
+
+    if result["verdict"] == "approved" and pay_out(ctx) == "parked":
         return
 
     time.sleep(0.05)
-    span_end(root)
+    _close_root(ctx)
 
 
 def resolve_pending(report_id, decision_label, approver=None, reason=None):
-    with pending_lock:
-        entry = pending_approvals.pop(report_id, None)
-    if entry is None:
-        return False
+    """Resolve whatever this report is parked on. Returns True if something was pending.
 
-    resume_id = uuid.uuid4().hex
-    resume_span = span_start(
-        entry["trace_id"], resume_id, entry["root_id"], "execute_tool", "orchestrator", report_id
-    )
+    Raises ValueError, *without* consuming the pending entry, when a payout is being
+    authorized with no name attached: spending money without knowing who said yes is
+    the audit-trail gap docs/REVIEW.md calls disqualifying.
+    """
+    with pending_lock:
+        entry = pending_approvals.get(report_id)
+        if entry is None:
+            return False
+        if entry["kind"] == "payout" and decision_label == "approved" and not (approver and approver.strip()):
+            raise ValueError("an approver's name is required to authorize a payout")
+        del pending_approvals[report_id]
+
+    ctx = {k: entry[k] for k in ("trace_id", "root_id", "start_ms", "report")}
+    attribution = {
+        **({"approver": approver} if approver else {}),
+        **({"decision_reason": reason} if reason else {}),
+    }
+    who = approver or "Manager"
+    why = f" — {reason}" if reason else ""
+
+    if entry["kind"] == "payout":
+        payout_id = entry["payout_id"]
+        span = span_start(ctx["trace_id"], uuid.uuid4().hex, ctx["root_id"], "execute_tool", "reimbursement", report_id)
+        time.sleep(0.1)
+        identity = agent_identity.spiffe_id("reimbursement")
+        if decision_label == "approved":
+            grant = agent_identity.issue_approval("reimbursement.settle", payout_id, approver, reason)
+            token = agent_identity.issue_token("orchestrator")
+            result = agent_gateway.invoke(token, "reimbursement.settle", payout_id, approval=grant, subject=payout_id)
+            span_end(
+                span,
+                attributes={
+                    "payout_status": "paid",
+                    "payout_id": payout_id,
+                    "amount_usd": result["amount_usd"],
+                    "summary": f"Paid ${result['amount_usd']:,.2f} — authorized by {who}{why}.",
+                    "identity": identity,
+                    **attribution,
+                },
+            )
+        else:
+            payouts.cancel(payout_id)
+            span_end(
+                span,
+                attributes={
+                    "payout_status": "cancelled",
+                    "payout_id": payout_id,
+                    "summary": f"Payout cancelled by {who}{why}.",
+                    "identity": identity,
+                    **attribution,
+                },
+            )
+        _close_root(ctx, {"manager_decision": decision_label})
+        return True
+
+    resume = span_start(ctx["trace_id"], uuid.uuid4().hex, ctx["root_id"], "execute_tool", "orchestrator", report_id)
     time.sleep(0.05)
     span_end(
-        resume_span,
+        resume,
         attributes={
             "manager_decision": decision_label,
-            **({"approver": approver} if approver else {}),
-            **({"decision_reason": reason} if reason else {}),
-            "summary": f"{approver or 'Manager'} {decision_label}"
-            + (f" — {reason}" if reason else " after review")
-            + ". Run resumed.",
+            **attribution,
+            "summary": f"{who} {decision_label}" + (why if reason else " after review") + ". Run resumed.",
         },
     )
-
-    root_span = {
-        "trace_id": entry["trace_id"],
-        "span_id": entry["root_id"],
-        "parent_id": None,
-        "name": "invoke_agent",
-        "agent": "orchestrator",
-        "report_id": report_id,
-        "start_ms": entry["start_ms"],
-        "status": "OK",
-        "attributes": {},
-    }
-    span_end(root_span, attributes={"manager_decision": decision_label})
+    # An approved expense goes on to be paid — which may park again, on the payout.
+    if decision_label == "approved" and pay_out(ctx) == "parked":
+        return True
+    _close_root(ctx, {"manager_decision": decision_label})
     return True
 
 
@@ -345,12 +539,17 @@ class EventsHandler(BaseHTTPRequestHandler):
             if path.startswith(prefix):
                 params = urllib.parse.parse_qs(query)
                 report_id = path[len(prefix):]
-                if resolve_pending(
-                    report_id,
-                    label,
-                    approver=(params.get("approver") or [None])[0],
-                    reason=(params.get("reason") or [None])[0],
-                ):
+                try:
+                    resolved = resolve_pending(
+                        report_id,
+                        label,
+                        approver=(params.get("approver") or [None])[0],
+                        reason=(params.get("reason") or [None])[0],
+                    )
+                except ValueError as err:
+                    self._json(400, {"ok": False, "error": str(err)})
+                    return
+                if resolved:
                     self._json(200, {"ok": True, "report_id": report_id, "decision": label})
                 else:
                     self._json(404, {"ok": False, "error": f"{report_id} is not pending approval"})
@@ -374,19 +573,12 @@ class EventsHandler(BaseHTTPRequestHandler):
         if self.path == "/pending":
             with pending_lock:
                 report_ids = list(pending_approvals.keys())
-            self._json(200, {"pending": report_ids})
+                kinds = {rid: entry["kind"] for rid, entry in pending_approvals.items()}
+            self._json(200, {"pending": report_ids, "kinds": kinds})
             return
 
-        if self.path.startswith("/approve/") or self.path.startswith("/deny/"):
-            decision_label = "approved" if self.path.startswith("/approve/") else "denied"
-            report_id = self.path.rsplit("/", 1)[-1]
-            resolved = resolve_pending(report_id, decision_label)
-            if resolved:
-                self._json(200, {"ok": True, "report_id": report_id, "decision": decision_label})
-            else:
-                self._json(404, {"ok": False, "error": f"{report_id} is not pending approval"})
-            return
-
+        # Approve and deny are POST-only. They change state (and may authorize a
+        # payout), and a GET can be fired by a link prefetcher or a crawler.
         self.send_response(404)
         self.end_headers()
 
@@ -399,6 +591,9 @@ class EventsHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         q = queue.Queue(maxsize=1000)
+        # Catch a late-joining radar up on anything parked, before live events arrive.
+        for frame in backlog_frames():
+            q.put_nowait(frame)
         with clients_lock:
             clients.append(q)
         try:
