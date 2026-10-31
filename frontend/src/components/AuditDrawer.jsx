@@ -1,26 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./AuditDrawer.css";
-
-function groupByReport(spans) {
-  const byReport = new Map();
-  for (const s of spans) {
-    if (!byReport.has(s.report_id)) byReport.set(s.report_id, []);
-    byReport.get(s.report_id).push(s);
-  }
-  return byReport;
-}
-
-function verdictOf(spans) {
-  const withVerdict = spans.find((s) => s.attributes?.verdict);
-  return withVerdict?.attributes.verdict ?? (spans.some((s) => s.status === "BLOCKED") ? "blocked" : "pending");
-}
-
-// An escalated report is still "awaiting a manager" until a resume span carrying
-// manager_decision shows up for it — see backend/devtools/local_server.py resolve_pending().
-function isAwaitingApproval(spans, verdict) {
-  if (verdict !== "escalated") return false;
-  return !spans.some((s) => s.attributes?.manager_decision);
-}
+import {
+  groupByReport,
+  verdictOf,
+  isAwaitingApproval,
+  payoutState,
+  VERDICT_CLASS,
+  PAYOUT_LABEL,
+} from "../lib/reports";
 
 import { BACKEND_URL as EVENTS_HOST } from "../lib/config";
 
@@ -39,25 +26,6 @@ function violationList(span) {
   }
   return [];
 }
-
-// A payout is its own wait. The expense can be approved while the payout it triggered is
-// still parked on a person, so this is read from the payout's own spans, not the verdict.
-function payoutState(spans) {
-  if (spans.some((s) => s.attributes?.payout_status === "paid")) return "paid";
-  if (spans.some((s) => s.attributes?.payout_status === "cancelled")) return "cancelled";
-  if (spans.some((s) => s.attributes?.awaiting_payout_authorization)) return "awaiting";
-  return null;
-}
-
-const PAYOUT_LABEL = { paid: "paid", cancelled: "payout cancelled", awaiting: "payout pending" };
-
-const VERDICT_CLASS = {
-  approved: "verdict--approved",
-  flagged: "verdict--flagged",
-  escalated: "verdict--escalated",
-  blocked: "verdict--blocked",
-  pending: "verdict--pending",
-};
 
 const VERDICT_HINT = {
   approved: "Within policy, no action needed.",

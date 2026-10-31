@@ -110,3 +110,7 @@
   flex-direction: column;
   min-width: 0;
 }
+
+.app-main--single {
+  grid-template-columns: minmax(0, 560px);
+}

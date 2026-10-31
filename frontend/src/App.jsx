@@ -4,6 +4,7 @@ import AuditDrawer from "./components/AuditDrawer";
 import ScenarioPicker from "./components/ScenarioPicker";
 import Legend from "./components/Legend";
 import SubmitExpense from "./components/SubmitExpense";
+import { PersonaBar, EmployeeView, ReviewerView, OpsPanels } from "./components/PersonaViews";
 import { useTracePlayer } from "./lib/useTracePlayer";
 import { useLiveTraceStream } from "./lib/useLiveTraceStream";
 import { BACKEND_URL, DEMO_ONLY } from "./lib/config";
@@ -13,10 +14,15 @@ const EVENTS_URL = `${BACKEND_URL}/events`;
 
 export default function App() {
   const [mode, setMode] = useState("replay"); // "replay" | "live"
+  const [persona, setPersona] = useState("overview");
+  const [myIds, setMyIds] = useState([]);
   const mock = useTracePlayer();
   const live = useLiveTraceStream(mode === "live" ? EVENTS_URL : null);
 
   const feed = mode === "live" ? live : mock;
+  // Personas need the live backend (submit, queue, registry); replay keeps the plain layout.
+  const personas = mode === "live" && !DEMO_ONLY;
+  const view = personas ? persona : "overview";
 
   return (
     <div className="app">
@@ -59,17 +65,37 @@ export default function App() {
       </div>
 
       {mode === "replay" && <ScenarioPicker onPlay={mock.play} />}
+      {personas && <PersonaBar persona={persona} onChange={setPersona} />}
 
-      <main className="app-main">
-        <div className="radar-column">
-          <RadarCanvas activeSpans={feed.activeSpans} blip={feed.blip} />
-          <Legend />
-        </div>
-        <div className="side-column">
-          {mode === "live" && !DEMO_ONLY && <SubmitExpense />}
-          <AuditDrawer completedSpans={feed.completedSpans} mode={mode} />
-        </div>
-      </main>
+      {view === "employee" && (
+        <main className="app-main app-main--single">
+          <EmployeeView
+            completedSpans={feed.completedSpans}
+            myIds={myIds}
+            onSubmitted={(id) => setMyIds((ids) => [...ids, id])}
+          />
+        </main>
+      )}
+
+      {view === "reviewer" && (
+        <main className="app-main app-main--single">
+          <ReviewerView completedSpans={feed.completedSpans} />
+        </main>
+      )}
+
+      {(view === "overview" || view === "ops") && (
+        <main className="app-main">
+          <div className="radar-column">
+            <RadarCanvas activeSpans={feed.activeSpans} blip={feed.blip} />
+            <Legend />
+          </div>
+          <div className="side-column">
+            {view === "overview" && personas && <SubmitExpense />}
+            {view === "ops" && <OpsPanels />}
+            <AuditDrawer completedSpans={feed.completedSpans} mode={mode} />
+          </div>
+        </main>
+      )}
     </div>
   );
 }

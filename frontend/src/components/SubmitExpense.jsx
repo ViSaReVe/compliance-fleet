@@ -17,8 +17,8 @@ const EMPTY = {
 // looping fixture. The report id is deliberately not a field: the backend assigns it.
 // A submitter-chosen id would let someone claim one that already has a receipt on file
 // (the id-spoofing hole docs/REVIEW.md reproduces against the real fleet).
-export default function SubmitExpense() {
-  const [open, setOpen] = useState(false);
+export default function SubmitExpense({ onSubmitted, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [form, setForm] = useState(EMPTY);
   const [state, setState] = useState({ kind: "idle" }); // idle | sending | ok | error
 
@@ -48,6 +48,7 @@ export default function SubmitExpense() {
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
         setState({ kind: "ok", reportId: body.report_id });
+        onSubmitted?.(body.report_id);
         setForm(EMPTY);
       } else if (res.status === 404) {
         setState({ kind: "error", message: "This backend does not accept manual submissions." });

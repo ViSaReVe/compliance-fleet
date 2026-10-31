@@ -80,3 +80,12 @@ already expects (`frontend/src/App.jsx` → `EVENTS_URL`).
 
 **When to delete this folder:** once `backend/fleet/server.py` exists and serves the
 real thing on the same URL. Nothing in the frontend needs to change when that happens.
+
+**Demo persona views (frontend, Live mode).** A switch above the radar offers Overview,
+Employee, Reviewer and Finance ops. It is a *view* switch, **not a sign-in**: the backend has no
+notion of who is asking, every endpoint answers every view, and the approver name is typed, not
+verified. Employee shows only the ids this browser submitted; Reviewer lists everything parked on
+a person, oldest first, with Approve/Authorize/Deny and how many values were redacted; Finance
+ops shows `/registry` (risk, health, capabilities) and `/gateway/audit` (an `APPROVAL_REQUIRED`
+is shown as *parked*, not refused). Real per-role access would need authenticated identities on
+the backend; that is not built.
